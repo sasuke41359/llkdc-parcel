@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>ระบบแจ้งเตือนพัสดุ LLKDC</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
+  <style>
+    :root {
+      --primary: #1d4ed8;
+      --primary-light: #3b82f6;
+      --primary-dark: #1e3a8a;
+      --success: #16a34a;
+      --warning: #d97706;
+      --danger: #dc2626;
+      --bg: #f0f4ff;
+      --surface: #ffffff;
+      --border: #e2e8f0;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --shadow: 0 4px 24px rgba(29,78,216,0.08);
+      --shadow-lg: 0 8px 40px rgba(29,78,216,0.14);
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Sarabun', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 15px;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+
+    /* ---- Layout ---- */
+    .app-wrap { max-width: 480px; margin: 0 auto; padding: 20px 16px 40px; }
+
+    /* ---- Header ---- */
+    .app-header {
+      text-align: center;
+      margin-bottom: 20px;
+      padding: 24px 16px 20px;
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+    .app-header::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 4px;
+      background: linear-gradient(90deg, var(--primary-dark), var(--primary-light), var(--primary-dark));
+    }
+    .app-header h1 { font-size: 1.25rem; font-weight: 700; color: var(--primary-dark); }
+    .app-header p  { font-size: 0.85rem; color: var(--text-muted); margin-top: 4px; }
+
+    /* ---- Tabs ---- */
+    .tab-nav {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 8px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow);
+    }
+    .tab-btn {
+      border: none; background: transparent; cursor: pointer;
+      padding: 10px 4px; border-radius: var(--radius-sm);
+      font-family: 'Sarabun', sans-serif; font-size: 0.75rem; font-weight: 500;
+      color: var(--text-muted); transition: all .2s;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+    }
+    .tab-btn i { font-size: 1rem; }
+    .tab-btn.active { background: var(--primary); color: #fff; box-shadow: 0 2px 12px rgba(29,78,216,0.3); }
+    .tab-btn:not(.active):hover { background: #f1f5ff; color: var(--primary); }
+
+    /* ---- Cards ---- */
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+      margin-bottom: 12px;
+    }
+    .card-title {
+      font-size: 1.05rem; font-weight: 700; color: var(--primary-dark);
+      margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+    }
+
+    /* ---- Form Elements ---- */
+    .form-group { margin-bottom: 14px; }
+    .form-label {
+      display: block; font-size: 0.85rem; font-weight: 600;
+      color: var(--text); margin-bottom: 6px;
+    }
+    .form-label i { margin-right: 4px; }
+    .form-control {
+      width: 100%; padding: 11px 14px;
+      border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      font-family: 'Sarabun', sans-serif; font-size: 0.95rem; color: var(--text);
+      transition: border-color .2s, box-shadow .2s; background: #fff;
+      appearance: none;
+    }
+    .form-control:focus {
+      outline: none; border-color: var(--primary-light);
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+    }
+
+    /* ---- Buttons ---- */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 11px 20px; border-radius: var(--radius-sm); border: none; cursor: pointer;
+      font-family: 'Sarabun', sans-serif; font-size: 0.95rem; font-weight: 600;
+      transition: all .2s;
+    }
+    .btn-primary { background: var(--primary); color: #fff; width: 100%; padding: 14px; font-size: 1rem; }
+    .btn-primary:hover { background: var(--primary-dark); box-shadow: 0 4px 16px rgba(29,78,216,0.3); }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-success:hover { background: #15803d; }
+    .btn-outline { background: #f1f5f9; color: var(--text); border: 1.5px solid var(--border); }
+    .btn-outline:hover { background: #e2e8f0; }
+    .btn-danger-soft { background: #fef2f2; color: var(--danger); border: 1.5px solid #fecaca; }
+    .btn-sm { padding: 7px 14px; font-size: 0.82rem; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    /* ---- Stats Grid ---- */
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .stat-card {
+      background: #fff; border-radius: var(--radius-sm);
+      padding: 14px 12px; text-align: center;
+      border: 1.5px solid var(--border);
+    }
+    .stat-value { font-size: 1.8rem; font-weight: 700; line-height: 1; }
+    .stat-label { font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; }
+    .stat-card.blue   .stat-value { color: var(--primary); }
+    .stat-card.green  .stat-value { color: var(--success); }
+    .stat-card.purple .stat-value { color: #7c3aed; }
+    .stat-card.slate  .stat-value { color: #475569; }
+
+    /* ---- Badge ---- */
+    .badge {
+      display: inline-block; padding: 3px 10px; border-radius: 99px;
+      font-size: 0.75rem; font-weight: 600;
+    }
+    .badge-pending  { background: #fff7ed; color: #c2410c; }
+    .badge-received { background: #f0fdf4; color: #15803d; }
+
+    /* ---- Table ---- */
+    .table-wrap { overflow-x: auto; margin: 0 -4px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; min-width: 700px; }
+    thead th {
+      background: #f8fafc; padding: 9px 10px; text-align: left;
+      font-weight: 600; color: var(--text-muted); border-bottom: 1.5px solid var(--border);
+      white-space: nowrap;
+    }
+    tbody tr { border-bottom: 1px solid #f1f5f9; transition: background .15s; }
+    tbody tr:hover { background: #f8faff; }
+    tbody td { padding: 9px 10px; vertical-align: middle; }
+    tbody td a { color: var(--primary-light); text-decoration: underline; font-size: 0.8rem; }
+
+    /* ---- Package Card (Update tab) ---- */
+    .pkg-card {
+      border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      padding: 14px; background: #fff; margin-bottom: 10px;
+      transition: box-shadow .2s;
+    }
+    .pkg-card:hover { box-shadow: var(--shadow); }
+    .pkg-card-name { font-weight: 600; font-size: 0.95rem; }
+    .pkg-card-sub  { font-size: 0.82rem; color: var(--text-muted); margin-top: 3px; }
+    .pkg-card-date { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+
+    /* ---- Upload Box ---- */
+    .upload-box {
+      border: 2px dashed var(--border); border-radius: var(--radius-sm);
+      padding: 28px; text-align: center; cursor: pointer;
+      transition: border-color .2s, background .2s;
+    }
+    .upload-box:hover { border-color: var(--primary-light); background: #f0f7ff; }
+    .upload-box i { font-size: 2rem; color: #94a3b8; margin-bottom: 6px; display: block; }
+    .upload-box p { font-size: 0.88rem; color: var(--text-muted); }
+    .preview-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-top: 12px; }
+    .preview-grid img { width: 100%; height: 90px; object-fit: cover; border-radius: 8px; }
+    .upload-actions { display: flex; gap: 8px; margin-top: 10px; }
+
+    /* ---- Sign Pad ---- */
+    .sign-wrap { border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: #fff; overflow: hidden; }
+    canvas { width: 100%; display: block; touch-action: none; }
+
+    /* ---- Overlay ---- */
+    .overlay {
+      position: fixed; inset: 0; background: rgba(15,23,42,0.5);
+      display: flex; align-items: center; justify-content: center; z-index: 100;
+      backdrop-filter: blur(2px);
+    }
+    .overlay.hidden { display: none !important; }
+    .modal {
+      background: var(--surface); border-radius: var(--radius);
+      padding: 24px; width: 95vw; max-width: 440px;
+      box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto;
+    }
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .modal-title { font-size: 1.05rem; font-weight: 700; }
+    .btn-close { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 1.1rem; }
+
+    /* ---- Loading spinner ---- */
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid #e2e8f0; border-top-color: var(--primary);
+      border-radius: 50%; animation: spin .7s linear infinite;
+      margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ---- Success icon ---- */
+    .success-icon { font-size: 3rem; color: var(--success); text-align: center; margin-bottom: 8px; }
+
+    /* ---- Filter row ---- */
+    .filter-row { display: flex; gap: 8px; margin-bottom: 14px; }
+    .filter-row .form-control { flex: 1; }
+
+    /* ---- Empty state ---- */
+    .empty-state { text-align: center; padding: 32px; color: var(--text-muted); }
+    .empty-state i { font-size: 2.5rem; margin-bottom: 8px; display: block; opacity: .4; }
+
+    /* ---- Search ---- */
+    .search-wrap { position: relative; margin-bottom: 14px; }
+    .search-wrap i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+    .search-wrap input { padding-left: 36px; }
+
+    /* ---- Loading row ---- */
+    .loading-row { text-align: center; padding: 24px; color: var(--text-muted); }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+
+<body>
+  <!-- Overlay: loading -->
+  <div id="overlay" class="overlay hidden">
+    <div class="modal" style="text-align:center;padding:32px">
+      <div class="spinner"></div>
+      <p style="color:var(--text-muted);font-weight:500">กำลังประมวลผล...</p>
+    </div>
+  </div>
+
+  <!-- Overlay: success -->
+  <div id="successModal" class="overlay hidden">
+    <div class="modal" style="text-align:center">
+      <div class="success-icon"><i class="fas fa-check-circle"></i></div>
+      <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:6px">บันทึกสำเร็จ</h3>
+      <p style="color:var(--text-muted);margin-bottom:20px">ข้อมูลถูกบันทึกเรียบร้อยแล้ว</p>
+      <button id="btnCloseSuccess" class="btn btn-primary">ปิด</button>
+    </div>
+  </div>
+
+  <!-- Overlay: receive modal -->
+  <div id="receiveModal" class="overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">ยืนยันการรับพัสดุ</span>
+        <button id="btnCloseReceive" class="btn-close"><i class="fas fa-times"></i></button>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">ชื่อผู้รับพัสดุ</label>
+        <input id="receiverNameInput" type="text" class="form-control" placeholder="เช่น สมชาย รับของแทน..." />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label"><i class="fas fa-camera" style="color:#f97316"></i> อัปโหลดรูปผู้รับ</label>
+        <div id="recvUploadBox" class="upload-box">
+          <i class="fas fa-cloud-upload-alt"></i>
+          <p>คลิกเพื่อเลือกรูปภาพ</p>
+          <p style="font-size:.75rem;margin-top:2px">JPG, PNG</p>
+        </div>
+        <input id="receiverPhotoFile" type="file" accept="image/*" class="hidden">
+        <div id="recvPreviewArea"></div>
+        <div id="recvUploadActions" class="upload-actions hidden">
+          <button type="button" id="btnRecvAddMore" class="btn btn-outline btn-sm">เปลี่ยนรูป</button>
+          <button type="button" id="btnRecvClear" class="btn btn-danger-soft btn-sm">ล้างรูป</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">ลายเซ็นผู้รับ</label>
+        <div class="sign-wrap">
+          <canvas id="signPad" width="380" height="150"></canvas>
+        </div>
+        <div style="margin-top:8px">
+          <button id="btnClearSign" class="btn btn-outline btn-sm">ล้างลายเซ็น</button>
+        </div>
+      </div>
+
+      <button id="btnConfirmReceive" class="btn btn-success" style="width:100%;margin-top:4px">
+        <i class="fas fa-check"></i> ยืนยันรับพัสดุ
+      </button>
+    </div>
+  </div>
+
+  <!-- ====== App ====== -->
+  <div class="app-wrap">
+    <header class="app-header">
+      <h1><i class="fas fa-box" style="color:var(--primary);margin-right:6px"></i>ระบบแจ้งเตือนพัสดุ/เอกสารค้างรับ</h1>
+      <p>ศูนย์กระจายสินค้าลาดหลุมแก้ว LLKDC</p>
+    </header>
+
+    <!-- Tabs -->
+    <nav class="tab-nav">
+      <button class="tab-btn active" data-tab="register">
+        <i class="fas fa-plus-circle"></i>ลงทะเบียน
+      </button>
+      <button class="tab-btn" data-tab="dashboard">
+        <i class="fas fa-chart-bar"></i>แดชบอร์ด
+      </button>
+      <button class="tab-btn" data-tab="update">
+        <i class="fas fa-edit"></i>อัปเดต
+      </button>
+      <button class="tab-btn" data-tab="report">
+        <i class="fas fa-list"></i>รายงาน
+      </button>
+    </nav>
+
+    <!-- TAB: ลงทะเบียน -->
+    <div id="register-tab" class="tab-pane">
+      <div class="card">
+        <div class="card-title"><i class="fas fa-box-open" style="color:var(--primary)"></i>ลงทะเบียนพัสดุ/เอกสารใหม่</div>
+        <form id="registerForm">
+          <div class="form-group">
+            <label class="form-label"><i class="fas fa-map-marker-alt" style="color:#ef4444"></i>จุดรับ</label>
+            <select id="pickupPoint" class="form-control" required>
+              <option value="">เลือกจุดรับ</option>
+              <option value="ป้อมหน้า">ป้อมหน้า</option>
+              <option value="แคนทีน">แคนทีน</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label"><i class="fas fa-paper-plane" style="color:#ec4899"></i>ผู้ฝากส่ง</label>
+            <input id="sender" type="text" class="form-control" placeholder="เช่น คุณ A, บริษัท, หน่วยงาน" />
+          </div>
+          <div class="form-group">
+            <label class="form-label"><i class="fas fa-user" style="color:#22c55e"></i>ชื่อผู้รับ/แผนก</label>
+            <select id="recipient" class="form-control" required>
+              <option value="">กำลังโหลดรายชื่อ...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label"><i class="fas fa-tags" style="color:#a855f7"></i>ประเภทพัสดุ</label>
+            <select id="packageType" class="form-control" required>
+              <option value="">เลือกประเภท</option>
+              <option value="พัสดุ">พัสดุ</option>
+              <option value="เอกสาร">เอกสาร</option>
+              <option value="บิล">บิล</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label"><i class="fas fa-camera" style="color:#f97316"></i>อัปโหลดรูปภาพ (สูงสุด 3 ไฟล์)</label>
+            <div id="uploadBox" class="upload-box">
+              <i class="fas fa-cloud-upload-alt"></i>
+              <p>คลิกเพื่อเลือกรูปภาพ</p>
+              <p style="font-size:.75rem;margin-top:2px">JPG, PNG</p>
+            </div>
+            <input id="files" type="file" accept="image/*" multiple class="hidden">
+            <div id="previewArea" class="preview-grid"></div>
+            <div id="uploadActions" class="upload-actions hidden">
+              <button type="button" id="btnAddMore" class="btn btn-outline btn-sm">เพิ่ม/เปลี่ยนรูป</button>
+              <button type="button" id="btnClearFiles" class="btn btn-danger-soft btn-sm">ล้างรูป</button>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save"></i>บันทึกข้อมูล
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- TAB: แดชบอร์ด -->
+    <div id="dashboard-tab" class="tab-pane hidden">
+      <div class="card">
+        <div class="card-title"><i class="fas fa-chart-bar" style="color:var(--primary)"></i>แดชบอร์ด</div>
+        <div class="stats-grid">
+          <div class="stat-card blue"><div id="statPending" class="stat-value">-</div><div class="stat-label">ค้างรับ</div></div>
+          <div class="stat-card green"><div id="statReceived" class="stat-value">-</div><div class="stat-label">รับแล้ว</div></div>
+          <div class="stat-card purple"><div id="statToday" class="stat-value">-</div><div class="stat-label">วันนี้</div></div>
+          <div class="stat-card slate"><div id="statTotal" class="stat-value">-</div><div class="stat-label">ทั้งหมด</div></div>
+        </div>
+        <div class="filter-row">
+          <select id="statusFilter" class="form-control">
+            <option value="">ทุกสถานะ</option>
+            <option value="ค้างรับ">ค้างรับ</option>
+            <option value="รับแล้ว">รับแล้ว</option>
+          </select>
+          <button id="btnRefresh" class="btn btn-outline"><i class="fas fa-rotate"></i></button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>วันที่</th><th>จุดรับ</th><th>Tracking</th><th>ผู้ส่ง</th>
+                <th>ผู้รับ</th><th>ประเภท</th><th>สถานะ</th><th>เวลารับ</th>
+                <th>รูปพัสดุ</th><th>รูปผู้รับ</th><th>ลายเซ็น</th>
+              </tr>
+            </thead>
+            <tbody id="dashTableBody">
+              <tr><td colspan="11" class="loading-row">กำลังโหลด...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: อัปเดต -->
+    <div id="update-tab" class="tab-pane hidden">
+      <div class="card">
+        <div class="card-title"><i class="fas fa-edit" style="color:var(--success)"></i>อัปเดตสถานะพัสดุ</div>
+        <div class="search-wrap">
+          <i class="fas fa-search"></i>
+          <input id="searchPackage" type="text" class="form-control" placeholder="ค้นหาชื่อผู้รับ หรือ Tracking ID...">
+        </div>
+        <div id="pendingList">
+          <div class="loading-row">กำลังโหลด...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: รายงาน -->
+    <div id="report-tab" class="tab-pane hidden">
+      <div class="card">
+        <div class="card-title"><i class="fas fa-list" style="color:#7c3aed"></i>รายงาน</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>วันที่</th><th>จุดรับ</th><th>Tracking</th><th>ผู้ส่ง</th>
+                <th>ผู้รับ</th><th>ประเภท</th><th>สถานะ</th><th>เวลารับ</th>
+                <th>รูปพัสดุ</th><th>รูปผู้รับ</th><th>ลายเซ็น</th>
+              </tr>
+            </thead>
+            <tbody id="reportTableBody">
+              <tr><td colspan="11" class="loading-row">กำลังโหลด...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== Firebase SDK ========== -->
+  <script type="module">
+    import { initializeApp }                      from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import { getFirestore, collection, doc, getDocs, addDoc, updateDoc, query, orderBy, where, serverTimestamp }
+                                                  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+    // ========== Firebase Config ==========
+    const firebaseConfig = {
+      apiKey:            'AIzaSyBjkH6IbKE7blC69WVf_PzxM2WRPSkzYqg',
+      authDomain:        'llkdc-parcel.firebaseapp.com',
+      projectId:         'llkdc-parcel',
+      storageBucket:     'llkdc-parcel.firebasestorage.app',
+      messagingSenderId: '151622901641',
+      appId:             '1:151622901641:web:375fe3fcf1bf1b7d484b58'
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+
+    // ========== Dirty Flags ==========
+    const _dirty = { dashboard: true, update: true, report: true };
+    function markAllDirty() { _dirty.dashboard = _dirty.update = _dirty.report = true; }
+
+    // ========== Utility ==========
+    const $ = id => document.getElementById(id);
+    const overlay      = $('overlay');
+    const successModal = $('successModal');
+    const showOverlay  = () => overlay.classList.remove('hidden');
+    const hideOverlay  = () => overlay.classList.add('hidden');
+
+    function generateTrackingId() {
+      const now  = new Date();
+      const pad  = n => String(n).padStart(2,'0');
+      const stamp = `${String(now.getFullYear()).slice(2)}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+      const rnd  = Math.floor(Math.random()*10000).toString().padStart(4,'0');
+      return `PKG-${stamp}-${rnd}`;
+    }
+
+    function formatDateTH(date) {
+      if (!date) return '';
+      const d = date instanceof Date ? date : new Date(date);
+      if (isNaN(d)) return '';
+      return d.toLocaleString('th-TH', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false, timeZone:'Asia/Bangkok' }).replace(',','');
+    }
+
+    function todayStr() {
+      return new Date().toLocaleDateString('th-TH', { day:'2-digit', month:'2-digit', year:'numeric', timeZone:'Asia/Bangkok' });
+    }
+
+    async function readFileAsBase64(file) {
+      return new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload  = e => res(String(e.target.result).split('base64,')[1] || '');
+        r.onerror = rej;
+        r.readAsDataURL(file);
+      });
+    }
+
+    // ========== Save image to Google Drive via Apps Script ==========
+    // รูปภาพยังคงเซฟที่ Google Drive ผ่าน GAS endpoint เดิม
+    // ถ้าไม่มี GAS แล้ว ให้ set GAS_URL = '' แล้วระบบจะข้าม upload รูป
+    const GAS_URL = ''; // ← ใส่ URL ของ GAS Web App เดิมถ้าต้องการ upload รูปยัง Drive
+
+    async function uploadImageToGAS(b64, filename) {
+      if (!GAS_URL || !b64) return '';
+      try {
+        const res = await fetch(GAS_URL, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'uploadImage', b64, filename })
+        });
+        const data = await res.json();
+        return data.url || '';
+      } catch { return ''; }
+    }
+
+    // ========== Tab switching ==========
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = btn.dataset.tab;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.add('hidden'));
+        btn.classList.add('active');
+        $(`${target}-tab`).classList.remove('hidden');
+        if (target === 'dashboard' && _dirty.dashboard) loadDashboard();
+        if (target === 'update'    && _dirty.update)    loadPending();
+        if (target === 'report'    && _dirty.report)    loadReport();
+      });
+    });
+
+    // ========== Load Mapping (recipient dropdown) ==========
+    async function loadMapping() {
+      const sel = $('recipient');
+      sel.innerHTML = '<option value="">กำลังโหลดรายชื่อ...</option>';
+      try {
+        const snap = await getDocs(query(collection(db, 'mapping'), orderBy('order')));
+        sel.innerHTML = '<option value="">เลือกชื่อผู้รับ</option>';
+        snap.forEach(d => {
+          const p   = d.data();
+          const opt = document.createElement('option');
+          opt.value = JSON.stringify(p);
+          opt.textContent = `${p.name || '-'} (${p.department || '-'})`;
+          sel.appendChild(opt);
+        });
+      } catch (e) {
+        console.error(e);
+        sel.innerHTML = '<option value="">โหลดรายชื่อไม่สำเร็จ</option>';
+      }
+    }
+
+    // ========== Create Package ==========
+    $('registerForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      showOverlay();
+
+      const pickupPoint = $('pickupPoint').value;
+      const type        = $('packageType').value;
+      const sender      = $('sender').value.trim();
+      const recRaw      = $('recipient').value;
+      const rec         = recRaw ? JSON.parse(recRaw) : {};
+      const fileList    = $('files').files;
+
+      // อ่านรูป
+      const filesData = [];
+      for (const f of Array.from(fileList).slice(0, 3)) {
+        const b64 = await readFileAsBase64(f);
+        filesData.push({ b64, name: f.name, mime: f.type });
+      }
+
+      const trackingId = generateTrackingId();
+      const now        = new Date();
+      const dateTH     = formatDateTH(now);
+
+      // Upload รูปไป Drive (ถ้ามี GAS URL)
+      const fileUrls = [];
+      for (const f of filesData) {
+        const url = await uploadImageToGAS(f.b64, `${trackingId}_${f.name}`);
+        fileUrls.push(url);
+      }
+
+      let recName = rec.name || '';
+      if (rec.department) recName = recName ? `${recName} (${rec.department})` : rec.department;
+
+      try {
+        await addDoc(collection(db, 'packages'), {
+          trackingId,
+          timestamp:      now.toISOString(),
+          dateTH,
+          pickupPoint,
+          sender,
+          recipient:      recName,
+          recipientEmail: rec.email || '',
+          type,
+          status:         'ค้างรับ',
+          fileUrls:       fileUrls.filter(Boolean),
+          receivedBy:     '',
+          receivedAt:     '',
+          receivedTH:     '',
+          receiverPhotoUrl: '',
+          receiverSignUrl:  '',
+          createdAt:      serverTimestamp()
+        });
+
+        hideOverlay();
+        markAllDirty();
+        successModal.classList.remove('hidden');
+      } catch (err) {
+        hideOverlay();
+        alert('บันทึกไม่สำเร็จ: ' + err.message);
+      }
+    });
+
+    $('btnCloseSuccess').onclick = () => {
+      successModal.classList.add('hidden');
+      $('registerForm').reset();
+      clearFiles();
+    };
+
+    // ========== File Upload Preview ==========
+    const fileInput   = $('files');
+    const uploadBox   = $('uploadBox');
+    const previewArea = $('previewArea');
+    const actionsBox  = $('uploadActions');
+
+    $('btnAddMore').addEventListener('click',    () => fileInput.click());
+    $('btnClearFiles').addEventListener('click', clearFiles);
+    uploadBox.addEventListener('click',          () => fileInput.click());
+    fileInput.addEventListener('change',         () => renderPreviews(fileInput.files));
+
+    function renderPreviews(files) {
+      previewArea.innerHTML = '';
+      const arr = Array.from(files || []).slice(0, 3);
+      if (!arr.length) return;
+      uploadBox.classList.add('hidden');
+      actionsBox.classList.remove('hidden');
+      arr.forEach(f => {
+        const reader = new FileReader();
+        reader.onload = e => {
+          const img = document.createElement('img');
+          img.src = e.target.result;
+          previewArea.appendChild(img);
+        };
+        reader.readAsDataURL(f);
+      });
+    }
+    function clearFiles() {
+      fileInput.value = '';
+      previewArea.innerHTML = '';
+      uploadBox.classList.remove('hidden');
+      actionsBox.classList.add('hidden');
+    }
+
+    // ========== Dashboard ==========
+    let _allPackages = [];
+
+    $('btnRefresh').addEventListener('click', () => { _dirty.dashboard = true; loadDashboard(); });
+    $('statusFilter').addEventListener('change', renderDashTable);
+
+    async function loadDashboard() {
+      if (!_dirty.dashboard) return;
+      _dirty.dashboard = false;
+      const tbody = $('dashTableBody');
+      tbody.innerHTML = '<tr><td colspan="11" class="loading-row">กำลังโหลด...</td></tr>';
+
+      try {
+        const snap = await getDocs(query(collection(db, 'packages'), orderBy('createdAt', 'desc')));
+        _allPackages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        updateStats();
+        renderDashTable();
+      } catch (err) {
+        _dirty.dashboard = true;
+        tbody.innerHTML = `<tr><td colspan="11" class="loading-row" style="color:var(--danger)">โหลดข้อมูลไม่สำเร็จ</td></tr>`;
+      }
+    }
+
+    function updateStats() {
+      const today    = todayStr();
+      const pending  = _allPackages.filter(r => r.status === 'ค้างรับ').length;
+      const received = _allPackages.filter(r => r.status === 'รับแล้ว').length;
+      const todayCount = _allPackages.filter(r => (r.dateTH || '').startsWith(today)).length;
+      $('statPending').textContent  = pending;
+      $('statReceived').textContent = received;
+      $('statToday').textContent    = todayCount;
+      $('statTotal').textContent    = _allPackages.length;
+    }
+
+    function renderDashTable() {
+      const status = $('statusFilter').value;
+      const list   = status ? _allPackages.filter(r => r.status === status) : _allPackages;
+      const tbody  = $('dashTableBody');
+      tbody.innerHTML = '';
+      if (!list.length) {
+        tbody.innerHTML = '<tr><td colspan="11" class="loading-row">ไม่มีข้อมูล</td></tr>'; return;
+      }
+      list.forEach(r => {
+        const sc        = r.status === 'ค้างรับ' ? 'badge-pending' : 'badge-received';
+        const fileLinks = (r.fileUrls || []).filter(Boolean).map((u,i) => `<a href="${u}" target="_blank">ดูรูป${i+1}</a>`).join(' ');
+        const photoLink = r.receiverPhotoUrl ? `<a href="${r.receiverPhotoUrl}" target="_blank">ดูรูป</a>` : '-';
+        const signLink  = r.receiverSignUrl  ? `<a href="${r.receiverSignUrl}"  target="_blank">ดูลายเซ็น</a>` : '-';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${r.dateTH||''}</td>
+          <td>${r.pickupPoint||''}</td>
+          <td style="white-space:nowrap;font-size:.78rem">${r.trackingId||''}</td>
+          <td>${r.sender||''}</td>
+          <td>${r.recipient||''}</td>
+          <td>${r.type||''}</td>
+          <td><span class="badge ${sc}">${r.status||''}</span></td>
+          <td>${r.receivedTH||'-'}</td>
+          <td>${fileLinks||'-'}</td>
+          <td>${photoLink}</td>
+          <td>${signLink}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // ========== Update Tab ==========
+    let _pendingPackages = [];
+
+    async function loadPending() {
+      if (!_dirty.update) return;
+      _dirty.update = false;
+      const wrap = $('pendingList');
+      wrap.innerHTML = '<div class="loading-row">กำลังโหลด...</div>';
+
+      try {
+        const snap = await getDocs(query(collection(db, 'packages'), where('status','==','ค้างรับ'), orderBy('createdAt','desc')));
+        _pendingPackages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderPendingList(_pendingPackages);
+      } catch (err) {
+        _dirty.update = true;
+        wrap.innerHTML = '<div class="loading-row" style="color:var(--danger)">โหลดข้อมูลไม่สำเร็จ</div>';
+      }
+    }
+
+    function renderPendingList(list) {
+      const wrap = $('pendingList');
+      wrap.innerHTML = '';
+      if (!list.length) {
+        wrap.innerHTML = '<div class="empty-state"><i class="fas fa-box-open"></i>ไม่มีพัสดุค้างรับ</div>'; return;
+      }
+      list.forEach(pkg => {
+        const card = document.createElement('div');
+        card.className = 'pkg-card';
+        card.innerHTML = `
+          <div class="pkg-card-name">${pkg.recipient} <span style="font-size:.78rem;color:var(--text-muted)">[${pkg.trackingId}]</span></div>
+          <div class="pkg-card-sub">${pkg.type} • ${pkg.pickupPoint}</div>
+          <div class="pkg-card-date">${pkg.dateTH||''}</div>
+          <div style="margin-top:10px">
+            <button class="btn btn-success btn-sm"><i class="fas fa-check"></i> รับแล้ว (อัปโหลดรูป + เซ็น)</button>
+          </div>`;
+        card.querySelector('button').addEventListener('click', () => openReceiveModal(pkg.id, pkg.trackingId));
+        wrap.appendChild(card);
+      });
+    }
+
+    $('searchPackage').addEventListener('input', function() {
+      const q = this.value.toLowerCase();
+      document.querySelectorAll('#pendingList .pkg-card').forEach(c => {
+        c.style.display = (c.textContent||'').toLowerCase().includes(q) ? '' : 'none';
+      });
+    });
+
+    // ========== Report Tab ==========
+    async function loadReport() {
+      if (!_dirty.report) return;
+      _dirty.report = false;
+      const tbody = $('reportTableBody');
+      tbody.innerHTML = '<tr><td colspan="11" class="loading-row">กำลังโหลด...</td></tr>';
+
+      try {
+        const snap = await getDocs(query(collection(db, 'packages'), orderBy('createdAt','desc')));
+        const rows = snap.docs.map(d => d.data());
+        tbody.innerHTML = '';
+        if (!rows.length) {
+          tbody.innerHTML = '<tr><td colspan="11" class="loading-row">ไม่มีข้อมูล</td></tr>'; return;
+        }
+        rows.forEach(r => {
+          const fileLinks = (r.fileUrls||[]).filter(Boolean).map((u,i) => `<a href="${u}" target="_blank">ดูรูป${i+1}</a>`).join(' ');
+          const photoLink = r.receiverPhotoUrl ? `<a href="${r.receiverPhotoUrl}" target="_blank">ดูรูป</a>` : '-';
+          const signLink  = r.receiverSignUrl  ? `<a href="${r.receiverSignUrl}"  target="_blank">ดูลายเซ็น</a>` : '-';
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${r.dateTH||''}</td><td>${r.pickupPoint||''}</td>
+            <td style="font-size:.78rem">${r.trackingId||''}</td>
+            <td>${r.sender||''}</td><td>${r.recipient||''}</td>
+            <td>${r.type||''}</td><td>${r.status||''}</td>
+            <td>${r.receivedTH||'-'}</td>
+            <td>${fileLinks||'-'}</td><td>${photoLink}</td><td>${signLink}</td>`;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        _dirty.report = true;
+        tbody.innerHTML = `<tr><td colspan="11" class="loading-row" style="color:var(--danger)">โหลดข้อมูลไม่สำเร็จ</td></tr>`;
+      }
+    }
+
+    // ========== Receive Modal (Sign + Photo) ==========
+    let _captureB64   = '';
+    let _currentDocId = '';
+    let _currentTrackingId = '';
+
+    const receiveModal    = $('receiveModal');
+    const signPad         = $('signPad');
+    const signCtx         = signPad.getContext('2d');
+    const fileChooser     = $('receiverPhotoFile');
+    const recvUploadBox   = $('recvUploadBox');
+    const recvPreviewArea = $('recvPreviewArea');
+    const recvActions     = $('recvUploadActions');
+
+    function clearSign() {
+      signCtx.fillStyle = '#fff';
+      signCtx.fillRect(0, 0, signPad.width, signPad.height);
+      signCtx.beginPath();
+    }
+    clearSign();
+
+    let drawing = false;
+    const getPos = e => {
+      const rect = signPad.getBoundingClientRect();
+      const scaleX = signPad.width  / rect.width;
+      const scaleY = signPad.height / rect.height;
+      return {
+        x: ((e.touches ? e.touches[0].clientX : e.clientX) - rect.left) * scaleX,
+        y: ((e.touches ? e.touches[0].clientY : e.clientY) - rect.top)  * scaleY
+      };
+    };
+    const drawLine = e => {
+      if (!drawing) return;
+      const {x,y} = getPos(e);
+      signCtx.lineWidth = 2; signCtx.lineCap = 'round'; signCtx.strokeStyle = '#1e293b';
+      signCtx.lineTo(x,y); signCtx.stroke();
+      signCtx.beginPath(); signCtx.moveTo(x,y);
+      e.preventDefault();
+    };
+    signPad.addEventListener('mousedown', e => { drawing=true; drawLine(e); });
+    signPad.addEventListener('mousemove', drawLine);
+    signPad.addEventListener('mouseup',   () => { drawing=false; signCtx.beginPath(); });
+    signPad.addEventListener('mouseleave',() => { drawing=false; signCtx.beginPath(); });
+    signPad.addEventListener('touchstart',e => { drawing=true; drawLine(e); }, {passive:false});
+    signPad.addEventListener('touchmove', drawLine, {passive:false});
+    signPad.addEventListener('touchend',  () => { drawing=false; signCtx.beginPath(); });
+    $('btnClearSign').addEventListener('click', clearSign);
+
+    recvUploadBox.addEventListener('click', () => fileChooser.click());
+    $('btnRecvAddMore').addEventListener('click', () => fileChooser.click());
+    $('btnRecvClear').addEventListener('click', () => {
+      _captureB64 = ''; fileChooser.value = '';
+      recvPreviewArea.innerHTML = '';
+      recvUploadBox.classList.remove('hidden');
+      recvActions.classList.add('hidden');
+    });
+    fileChooser.addEventListener('change', async () => {
+      const f = fileChooser.files?.[0]; if (!f) return;
+      _captureB64 = await readFileAsBase64(f);
+      const img = document.createElement('img');
+      img.src = `data:${f.type||'image/jpeg'};base64,${_captureB64}`;
+      img.style.cssText = 'width:100%;height:140px;object-fit:cover;border-radius:8px;margin-top:8px';
+      recvPreviewArea.innerHTML = ''; recvPreviewArea.appendChild(img);
+      recvUploadBox.classList.add('hidden'); recvActions.classList.remove('hidden');
+    });
+
+    function openReceiveModal(docId, trackingId) {
+      _currentDocId     = docId;
+      _currentTrackingId = trackingId;
+      $('receiverNameInput').value = '';
+      _captureB64 = ''; fileChooser.value = '';
+      recvPreviewArea.innerHTML = '';
+      recvUploadBox.classList.remove('hidden'); recvActions.classList.add('hidden');
+      clearSign();
+      receiveModal.classList.remove('hidden');
+    }
+    $('btnCloseReceive').addEventListener('click', () => receiveModal.classList.add('hidden'));
+
+    $('btnConfirmReceive').addEventListener('click', async () => {
+      const name = $('receiverNameInput').value.trim();
+      if (!name)        return alert('กรุณากรอกชื่อผู้รับพัสดุ');
+      if (!_captureB64) return alert('กรุณาอัปโหลดรูปผู้รับ');
+
+      const signB64 = signPad.toDataURL('image/png').split('base64,')[1];
+      showOverlay();
+
+      // Upload รูปผู้รับและลายเซ็นไป Drive (ถ้ามี GAS URL)
+      const photoUrl = await uploadImageToGAS(_captureB64, `${_currentTrackingId}_receiver.jpg`);
+      const signUrl  = await uploadImageToGAS(signB64,     `${_currentTrackingId}_sign.png`);
+
+      const now = new Date();
+      try {
+        await updateDoc(doc(db, 'packages', _currentDocId), {
+          status:           'รับแล้ว',
+          receivedBy:       name,
+          receivedAt:       now.toISOString(),
+          receivedTH:       formatDateTH(now),
+          receiverPhotoUrl: photoUrl,
+          receiverSignUrl:  signUrl
+        });
+        hideOverlay();
+        receiveModal.classList.add('hidden');
+        markAllDirty();
+        _dirty.update = false;
+        await loadPending();
+        alert('อัปเดตสถานะเรียบร้อยแล้ว');
+      } catch (err) {
+        hideOverlay();
+        alert('อัปเดตไม่สำเร็จ: ' + err.message);
+      }
+    });
+
+    // ========== Init ==========
+    loadMapping();
+    loadDashboard();
+  </script>
+</body>
+</html>
