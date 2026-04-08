@@ -546,20 +546,27 @@
     async function uploadImageToCloudinary(b64, filename) {
       if (!b64) return '';
       try {
+        // ตรวจสอบ mime type จากชื่อไฟล์
+        const isPng  = filename.toLowerCase().endsWith('.png');
+        const mime   = isPng ? 'image/png' : 'image/jpeg';
+
         const formData = new FormData();
-        formData.append('file',         `data:image/jpeg;base64,${b64}`);
-        formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-        formData.append('public_id',     filename.replace(/\.[^.]+$/, ''));
-        formData.append('folder',        'llkdc_parcel');
+        formData.append('file',          `data:${mime};base64,${b64}`);
+        formData.append('upload_preset',  CLOUDINARY_UPLOAD_PRESET);
+        formData.append('public_id',      filename.replace(/\.[^.]+$/, ''));
 
         const res  = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
           method: 'POST',
           body:   formData
         });
         const data = await res.json();
+        if (data.error) {
+          console.warn('Cloudinary error:', data.error.message);
+          return '';
+        }
         return data.secure_url || '';
       } catch (err) {
-        console.warn('Cloudinary upload error:', err);
+        console.warn('Cloudinary upload exception:', err);
         return '';
       }
     }
