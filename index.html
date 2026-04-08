@@ -530,30 +530,49 @@
     }
 
     // ========== Cloudinary Upload ==========
+    // ✅ [OPTIMIZED] ส่ง File object โดยตรง — ไม่แปลง Base64 ให้เปลือง RAM
+    // ✅ [OPTIMIZED] Compress รูปก่อน upload ด้วย canvas (ลด payload 70-90%)
     const CLOUDINARY_CLOUD_NAME    = 'diiqvxqqd';
     const CLOUDINARY_UPLOAD_PRESET = 'llkdc_parcel';
+    const MAX_IMG_SIZE = 1200; // px — ลด resolution ก่อน upload
+    const IMG_QUALITY  = 0.75; // jpeg quality 75%
 
-    async function uploadImageToCloudinary(b64, filename) {
-      if (!b64) return '';
+    async function compressImage(file) {
+      return new Promise(resolve => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          let { width, height } = img;
+          // scale down ถ้าใหญ่เกิน MAX_IMG_SIZE
+          if (width > MAX_IMG_SIZE || height > MAX_IMG_SIZE) {
+            if (width > height) { height = Math.round(height * MAX_IMG_SIZE / width); width = MAX_IMG_SIZE; }
+            else                { width  = Math.round(width  * MAX_IMG_SIZE / height); height = MAX_IMG_SIZE; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width; canvas.height = height;
+          canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+          canvas.toBlob(blob => resolve(blob || file), 'image/jpeg', IMG_QUALITY);
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+        img.src = url;
+      });
+    }
+
+    async function uploadFileToCloudinary(fileOrBlob, filename) {
+      if (!fileOrBlob) return '';
       try {
-        // ตรวจสอบ mime type จากชื่อไฟล์
-        const isPng  = filename.toLowerCase().endsWith('.png');
-        const mime   = isPng ? 'image/png' : 'image/jpeg';
-
         const formData = new FormData();
-        formData.append('file',          `data:${mime};base64,${b64}`);
-        formData.append('upload_preset',  CLOUDINARY_UPLOAD_PRESET);
-        formData.append('public_id',      filename.replace(/\.[^.]+$/, ''));
+        formData.append('file',          fileOrBlob);
+        formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+        formData.append('public_id',     filename.replace(/\.[^.]+$/, ''));
 
         const res  = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
           method: 'POST',
           body:   formData
         });
         const data = await res.json();
-        if (data.error) {
-          console.warn('Cloudinary error:', data.error.message);
-          return '';
-        }
+        if (data.error) { console.warn('Cloudinary error:', data.error.message); return ''; }
         return data.secure_url || '';
       } catch (err) {
         console.warn('Cloudinary upload exception:', err);
@@ -561,7 +580,25 @@
       }
     }
 
-    // ไม่ใช้แล้ว — เก็บไว้เผื่ออนาคต
+    // ✅ [OPTIMIZED] upload จาก base64 string (ใช้สำหรับรูปผู้รับที่ถ่ายจากกล้อง)
+    async function uploadImageToCloudinary(b64, filename) {
+      if (!b64) return '';
+      try {
+        const isPng = filename.toLowerCase().endsWith('.png');
+        const mime  = isPng ? 'image/png' : 'image/jpeg';
+        // แปลง base64 → Blob โดยตรง ไม่ส่งเป็น string
+        const byteStr = atob(b64);
+        const arr     = new Uint8Array(byteStr.length);
+        for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
+        const blob = new Blob([arr], { type: mime });
+        return uploadFileToCloudinary(blob, filename);
+      } catch (err) {
+        console.warn('uploadImageToCloudinary error:', err);
+        return '';
+      }
+    }
+
+    // ไม่ใช้แล้ว
     async function uploadImageToGAS(b64, filename) { return ''; }
 
     // ========== Tab switching ==========
@@ -647,8 +684,9 @@
         if (filesArr.length > 0) {
           Promise.all(
             filesArr.map(async f => {
-              const b64 = await readFileAsBase64(f);
-              return uploadImageToCloudinary(b64, `${trackingId}_${f.name}`);
+              // ✅ compress ก่อน แล้วส่ง Blob โดยตรง — ไม่ผ่าน base64
+              const compressed = await compressImage(f);
+              return uploadFileToCloudinary(compressed, `${trackingId}_${f.name}`);
             })
           ).then(async fileUrls => {
             const urls = fileUrls.filter(Boolean);
@@ -701,14 +739,12 @@
       if (!arr.length) return;
       uploadBox.classList.add('hidden');
       actionsBox.classList.remove('hidden');
+      // ✅ [OPTIMIZED] createObjectURL เร็วกว่า FileReader มาก
       arr.forEach(f => {
-        const reader = new FileReader();
-        reader.onload = e => {
-          const img = document.createElement('img');
-          img.src = e.target.result;
-          previewArea.appendChild(img);
-        };
-        reader.readAsDataURL(f);
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(f);
+        img.onload = () => URL.revokeObjectURL(img.src); // คืน memory หลังโหลดแล้ว
+        previewArea.appendChild(img);
       });
     }
     function clearFiles() {
@@ -864,7 +900,7 @@
     }
 
     // ========== Receive Modal (Sign + Photo) ==========
-    let _captureB64   = '';
+    let _captureFile  = null;
     let _currentDocId = '';
     let _currentTrackingId = '';
 
@@ -877,16 +913,18 @@
     recvUploadBox.addEventListener('click', () => fileChooser.click());
     $('btnRecvAddMore').addEventListener('click', () => fileChooser.click());
     $('btnRecvClear').addEventListener('click', () => {
-      _captureB64 = ''; fileChooser.value = '';
+      _captureFile = null; fileChooser.value = '';
       recvPreviewArea.innerHTML = '';
       recvUploadBox.classList.remove('hidden');
       recvActions.classList.add('hidden');
     });
     fileChooser.addEventListener('change', async () => {
       const f = fileChooser.files?.[0]; if (!f) return;
-      _captureB64 = await readFileAsBase64(f);
+      // ✅ [OPTIMIZED] เก็บ File object ไว้แทน base64 — แปลงตอน upload เท่านั้น
+      _captureFile = f;
       const img = document.createElement('img');
-      img.src = `data:${f.type||'image/jpeg'};base64,${_captureB64}`;
+      img.src = URL.createObjectURL(f);
+      img.onload = () => URL.revokeObjectURL(img.src);
       img.style.cssText = 'width:100%;height:140px;object-fit:cover;border-radius:8px;margin-top:8px';
       recvPreviewArea.innerHTML = ''; recvPreviewArea.appendChild(img);
       recvUploadBox.classList.add('hidden'); recvActions.classList.remove('hidden');
@@ -896,7 +934,7 @@
       _currentDocId      = docId;
       _currentTrackingId = trackingId;
       $('receiverNameInput').value = '';
-      _captureB64 = ''; fileChooser.value = '';
+      _captureFile = null; fileChooser.value = '';
       recvPreviewArea.innerHTML = '';
       recvUploadBox.classList.remove('hidden'); recvActions.classList.add('hidden');
       receiveModal.classList.remove('hidden');
@@ -905,14 +943,14 @@
 
     $('btnConfirmReceive').addEventListener('click', async () => {
       const name = $('receiverNameInput').value.trim();
-      if (!name)        return alert('กรุณากรอกชื่อผู้รับพัสดุ');
-      if (!_captureB64) return alert('กรุณาอัปโหลดรูปผู้รับ');
+      if (!name)         return alert('กรุณากรอกชื่อผู้รับพัสดุ');
+      if (!_captureFile) return alert('กรุณาอัปโหลดรูปผู้รับ');
 
-      const signB64 = signPad.toDataURL('image/png').split('base64,')[1];
       showOverlay();
 
-      // ✅ upload รูปผู้รับอย่างเดียว (ตัดลายเซ็นออก)
-      const photoUrl = await uploadImageToCloudinary(_captureB64, `${_currentTrackingId}_receiver.jpg`);
+      // ✅ [OPTIMIZED] compress + upload File โดยตรง — ไม่ผ่าน base64
+      const compressed = await compressImage(_captureFile);
+      const photoUrl   = await uploadFileToCloudinary(compressed, `${_currentTrackingId}_receiver.jpg`);
 
       const now = new Date();
       try {
