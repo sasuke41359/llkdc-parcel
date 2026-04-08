@@ -538,10 +538,33 @@
       }
     }
 
-    // ========== Google Drive upload (ถ้าต้องการในอนาคต) ==========
-    async function uploadImageToGAS(b64, filename) {
-      return ''; // ไม่ใช้แล้ว — รูปเก็บที่ Drive เดิมผ่าน GAS
+    // ========== Cloudinary Upload ==========
+    const CLOUDINARY_CLOUD_NAME    = 'diiqvxqqd';
+    const CLOUDINARY_UPLOAD_PRESET = 'llkdc_parcel';
+
+    async function uploadImageToCloudinary(b64, filename) {
+      if (!b64) return '';
+      try {
+        const formData = new FormData();
+        formData.append('file',         `data:image/jpeg;base64,${b64}`);
+        formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+        formData.append('public_id',     filename.replace(/\.[^.]+$/, ''));
+        formData.append('folder',        'llkdc_parcel');
+
+        const res  = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+          method: 'POST',
+          body:   formData
+        });
+        const data = await res.json();
+        return data.secure_url || '';
+      } catch (err) {
+        console.warn('Cloudinary upload error:', err);
+        return '';
+      }
     }
+
+    // ไม่ใช้แล้ว — เก็บไว้เผื่ออนาคต
+    async function uploadImageToGAS(b64, filename) { return ''; }
 
     // ========== Tab switching ==========
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -603,7 +626,7 @@
       // Upload รูปไป Drive (ถ้ามี GAS URL)
       const fileUrls = [];
       for (const f of filesData) {
-        const url = await uploadImageToGAS(f.b64, `${trackingId}_${f.name}`);
+        const url = await uploadImageToCloudinary(f.b64, `${trackingId}_${f.name}`);
         fileUrls.push(url);
       }
 
@@ -921,8 +944,8 @@
       showOverlay();
 
       // Upload รูปผู้รับและลายเซ็นไป Drive (ถ้ามี GAS URL)
-      const photoUrl = await uploadImageToGAS(_captureB64, `${_currentTrackingId}_receiver.jpg`);
-      const signUrl  = await uploadImageToGAS(signB64,     `${_currentTrackingId}_sign.png`);
+      const photoUrl = await uploadImageToCloudinary(_captureB64, `${_currentTrackingId}_receiver.jpg`);
+      const signUrl  = await uploadImageToCloudinary(signB64,     `${_currentTrackingId}_sign.png`);
 
       const now = new Date();
       try {
