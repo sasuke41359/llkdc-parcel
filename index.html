@@ -290,16 +290,6 @@
         </div>
       </div>
 
-      <div class="form-group">
-        <label class="form-label">ลายเซ็นผู้รับ</label>
-        <div class="sign-wrap">
-          <canvas id="signPad" width="380" height="150"></canvas>
-        </div>
-        <div style="margin-top:8px">
-          <button id="btnClearSign" class="btn btn-outline btn-sm">ล้างลายเซ็น</button>
-        </div>
-      </div>
-
       <button id="btnConfirmReceive" class="btn btn-success" style="width:100%;margin-top:4px">
         <i class="fas fa-check"></i> ยืนยันรับพัสดุ
       </button>
@@ -867,46 +857,10 @@
     let _currentTrackingId = '';
 
     const receiveModal    = $('receiveModal');
-    const signPad         = $('signPad');
-    const signCtx         = signPad.getContext('2d');
     const fileChooser     = $('receiverPhotoFile');
     const recvUploadBox   = $('recvUploadBox');
     const recvPreviewArea = $('recvPreviewArea');
     const recvActions     = $('recvUploadActions');
-
-    function clearSign() {
-      signCtx.fillStyle = '#fff';
-      signCtx.fillRect(0, 0, signPad.width, signPad.height);
-      signCtx.beginPath();
-    }
-    clearSign();
-
-    let drawing = false;
-    const getPos = e => {
-      const rect = signPad.getBoundingClientRect();
-      const scaleX = signPad.width  / rect.width;
-      const scaleY = signPad.height / rect.height;
-      return {
-        x: ((e.touches ? e.touches[0].clientX : e.clientX) - rect.left) * scaleX,
-        y: ((e.touches ? e.touches[0].clientY : e.clientY) - rect.top)  * scaleY
-      };
-    };
-    const drawLine = e => {
-      if (!drawing) return;
-      const {x,y} = getPos(e);
-      signCtx.lineWidth = 2; signCtx.lineCap = 'round'; signCtx.strokeStyle = '#1e293b';
-      signCtx.lineTo(x,y); signCtx.stroke();
-      signCtx.beginPath(); signCtx.moveTo(x,y);
-      e.preventDefault();
-    };
-    signPad.addEventListener('mousedown', e => { drawing=true; drawLine(e); });
-    signPad.addEventListener('mousemove', drawLine);
-    signPad.addEventListener('mouseup',   () => { drawing=false; signCtx.beginPath(); });
-    signPad.addEventListener('mouseleave',() => { drawing=false; signCtx.beginPath(); });
-    signPad.addEventListener('touchstart',e => { drawing=true; drawLine(e); }, {passive:false});
-    signPad.addEventListener('touchmove', drawLine, {passive:false});
-    signPad.addEventListener('touchend',  () => { drawing=false; signCtx.beginPath(); });
-    $('btnClearSign').addEventListener('click', clearSign);
 
     recvUploadBox.addEventListener('click', () => fileChooser.click());
     $('btnRecvAddMore').addEventListener('click', () => fileChooser.click());
@@ -927,13 +881,12 @@
     });
 
     function openReceiveModal(docId, trackingId) {
-      _currentDocId     = docId;
+      _currentDocId      = docId;
       _currentTrackingId = trackingId;
       $('receiverNameInput').value = '';
       _captureB64 = ''; fileChooser.value = '';
       recvPreviewArea.innerHTML = '';
       recvUploadBox.classList.remove('hidden'); recvActions.classList.add('hidden');
-      clearSign();
       receiveModal.classList.remove('hidden');
     }
     $('btnCloseReceive').addEventListener('click', () => receiveModal.classList.add('hidden'));
@@ -946,12 +899,8 @@
       const signB64 = signPad.toDataURL('image/png').split('base64,')[1];
       showOverlay();
 
-      // Upload รูปผู้รับและลายเซ็นไป Drive (ถ้ามี GAS URL)
-      // ✅ upload รูปผู้รับและลายเซ็นพร้อมกัน (parallel)
-      const [photoUrl, signUrl] = await Promise.all([
-        uploadImageToCloudinary(_captureB64, `${_currentTrackingId}_receiver.jpg`),
-        uploadImageToCloudinary(signB64,     `${_currentTrackingId}_sign.png`)
-      ]);
+      // ✅ upload รูปผู้รับอย่างเดียว (ตัดลายเซ็นออก)
+      const photoUrl = await uploadImageToCloudinary(_captureB64, `${_currentTrackingId}_receiver.jpg`);
 
       const now = new Date();
       try {
@@ -961,7 +910,7 @@
           receivedAt:       now.toISOString(),
           receivedTH:       formatDateTH(now),
           receiverPhotoUrl: photoUrl,
-          receiverSignUrl:  signUrl
+          receiverSignUrl:  ''
         });
         hideOverlay();
         receiveModal.classList.add('hidden');
