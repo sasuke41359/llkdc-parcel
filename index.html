@@ -519,7 +519,7 @@
     emailjs.init(EMAILJS_PUBLIC_KEY);
 
     async function sendEmailNotification(payload) {
-      const { recipientEmail, recipientName, trackingId, pickupPoint, type, sender, dateTH } = payload;
+      const { recipientEmail, recipientName, trackingId, pickupPoint, type, sender, dateTH, fileUrls } = payload;
       if (!recipientEmail || !recipientEmail.includes('@')) return;
       try {
         await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
@@ -529,7 +529,8 @@
           pickup_point:   pickupPoint,
           type:           type,
           sender:         sender || '-',
-          date:           dateTH
+          date:           dateTH,
+          file_urls:      fileUrls && fileUrls.length ? fileUrls.filter(Boolean).join('\n') : 'ไม่มีรูปแนบ'
         });
         console.log('ส่งอีเมลสำเร็จ:', recipientEmail);
       } catch (err) {
@@ -661,7 +662,8 @@
           pickupPoint,
           type,
           sender,
-          dateTH
+          dateTH,
+          fileUrls
         });
 
         hideOverlay();
