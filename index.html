@@ -609,57 +609,69 @@
       const recRaw      = $('recipient').value;
       const rec         = recRaw ? JSON.parse(recRaw) : {};
       const fileList    = $('files').files;
+      const filesArr    = Array.from(fileList).slice(0, 3);
 
       const trackingId = generateTrackingId();
       const now        = new Date();
       const dateTH     = formatDateTH(now);
-
-      // ✅ อ่านรูปและ upload Cloudinary พร้อมกันทั้งหมด (parallel)
-      const fileUrls = await Promise.all(
-        Array.from(fileList).slice(0, 3).map(async f => {
-          const b64 = await readFileAsBase64(f);
-          return uploadImageToCloudinary(b64, `${trackingId}_${f.name}`);
-        })
-      );
-
-      let recName = rec.name || '';
+      let recName      = rec.name || '';
       if (rec.department) recName = recName ? `${recName} (${rec.department})` : rec.department;
 
       try {
-        await addDoc(collection(db, 'packages'), {
+        // ✅ [FAST] บันทึก Firestore ก่อนเลย — ไม่รอรูป
+        const docRef = await addDoc(collection(db, 'packages'), {
           trackingId,
-          timestamp:      now.toISOString(),
+          timestamp:        now.toISOString(),
           dateTH,
           pickupPoint,
           sender,
-          recipient:      recName,
-          recipientEmail: rec.email || '',
+          recipient:        recName,
+          recipientEmail:   rec.email || '',
           type,
-          status:         'ค้างรับ',
-          fileUrls:       fileUrls.filter(Boolean),
-          receivedBy:     '',
-          receivedAt:     '',
-          receivedTH:     '',
+          status:           'ค้างรับ',
+          fileUrls:         [],   // ยังว่าง รอ background upload
+          receivedBy:       '',
+          receivedAt:       '',
+          receivedTH:       '',
           receiverPhotoUrl: '',
           receiverSignUrl:  '',
-          createdAt:      serverTimestamp()
+          createdAt:        serverTimestamp()
         });
 
-        // ส่งอีเมลแจ้งเตือนผู้รับ
-        await sendEmailNotification({
-          recipientEmail: rec.email || '',
-          recipientName:  rec.name  || '',
-          trackingId,
-          pickupPoint,
-          type,
-          sender,
-          dateTH,
-          fileUrls
-        });
-
+        // ✅ แสดง success ทันที — ไม่รอรูป
         hideOverlay();
         markAllDirty();
         successModal.classList.remove('hidden');
+
+        // ✅ [BACKGROUND] อ่านรูป + upload + update Firestore + ส่งอีเมล หลัง UI ปิดแล้ว
+        if (filesArr.length > 0) {
+          Promise.all(
+            filesArr.map(async f => {
+              const b64 = await readFileAsBase64(f);
+              return uploadImageToCloudinary(b64, `${trackingId}_${f.name}`);
+            })
+          ).then(async fileUrls => {
+            const urls = fileUrls.filter(Boolean);
+            // อัปเดต fileUrls ลง Firestore
+            await updateDoc(docRef, { fileUrls: urls });
+            // ส่งอีเมลพร้อม link รูป
+            sendEmailNotification({
+              recipientEmail: rec.email || '',
+              recipientName:  rec.name  || '',
+              trackingId, pickupPoint, type, sender, dateTH,
+              fileUrls: urls
+            });
+          }).catch(err => console.warn('Background upload error:', err));
+        } else {
+          // ไม่มีรูป — ส่งอีเมลทันที
+          sendEmailNotification({
+            recipientEmail: rec.email || '',
+            recipientName:  rec.name  || '',
+            trackingId, pickupPoint, type, sender, dateTH,
+            fileUrls: []
+          });
+        }
+
       } catch (err) {
         hideOverlay();
         alert('บันทึกไม่สำเร็จ: ' + err.message);
