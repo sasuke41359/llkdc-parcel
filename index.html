@@ -6,6 +6,7 @@
   <title>ระบบแจ้งเตือนพัสดุ LLKDC</title>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <style>
     :root {
       --primary: #1d4ed8;
@@ -510,21 +511,36 @@
       });
     }
 
-    // ========== Save image to Google Drive via Apps Script ==========
-    // รูปภาพยังคงเซฟที่ Google Drive ผ่าน GAS endpoint เดิม
-    // ถ้าไม่มี GAS แล้ว ให้ set GAS_URL = '' แล้วระบบจะข้าม upload รูป
-    const GAS_URL = ''; // ← ใส่ URL ของ GAS Web App เดิมถ้าต้องการ upload รูปยัง Drive
+    // ========== EmailJS Config ==========
+    const EMAILJS_SERVICE_ID  = 'service_x1ikhw4';
+    const EMAILJS_TEMPLATE_ID = 'template_kd34iqm';
+    const EMAILJS_PUBLIC_KEY  = 'jlcMr7JQb8exygtzY';
 
-    async function uploadImageToGAS(b64, filename) {
-      if (!GAS_URL || !b64) return '';
+    emailjs.init(EMAILJS_PUBLIC_KEY);
+
+    async function sendEmailNotification(payload) {
+      const { recipientEmail, recipientName, trackingId, pickupPoint, type, sender, dateTH } = payload;
+      if (!recipientEmail || !recipientEmail.includes('@')) return;
       try {
-        const res = await fetch(GAS_URL, {
-          method: 'POST',
-          body: JSON.stringify({ action: 'uploadImage', b64, filename })
+        await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+          to_email:       recipientEmail,
+          recipient_name: recipientName || recipientEmail,
+          tracking_id:    trackingId,
+          pickup_point:   pickupPoint,
+          type:           type,
+          sender:         sender || '-',
+          date:           dateTH
         });
-        const data = await res.json();
-        return data.url || '';
-      } catch { return ''; }
+        console.log('ส่งอีเมลสำเร็จ:', recipientEmail);
+      } catch (err) {
+        console.warn('ส่งอีเมลไม่สำเร็จ:', err);
+        // swallow — ไม่ block การบันทึก
+      }
+    }
+
+    // ========== Google Drive upload (ถ้าต้องการในอนาคต) ==========
+    async function uploadImageToGAS(b64, filename) {
+      return ''; // ไม่ใช้แล้ว — รูปเก็บที่ Drive เดิมผ่าน GAS
     }
 
     // ========== Tab switching ==========
@@ -612,6 +628,17 @@
           receiverPhotoUrl: '',
           receiverSignUrl:  '',
           createdAt:      serverTimestamp()
+        });
+
+        // ส่งอีเมลแจ้งเตือนผู้รับ
+        await sendEmailNotification({
+          recipientEmail: rec.email || '',
+          recipientName:  rec.name  || '',
+          trackingId,
+          pickupPoint,
+          type,
+          sender,
+          dateTH
         });
 
         hideOverlay();
