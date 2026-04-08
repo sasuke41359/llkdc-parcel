@@ -620,23 +620,17 @@
       const rec         = recRaw ? JSON.parse(recRaw) : {};
       const fileList    = $('files').files;
 
-      // อ่านรูป
-      const filesData = [];
-      for (const f of Array.from(fileList).slice(0, 3)) {
-        const b64 = await readFileAsBase64(f);
-        filesData.push({ b64, name: f.name, mime: f.type });
-      }
-
       const trackingId = generateTrackingId();
       const now        = new Date();
       const dateTH     = formatDateTH(now);
 
-      // Upload รูปไป Drive (ถ้ามี GAS URL)
-      const fileUrls = [];
-      for (const f of filesData) {
-        const url = await uploadImageToCloudinary(f.b64, `${trackingId}_${f.name}`);
-        fileUrls.push(url);
-      }
+      // ✅ อ่านรูปและ upload Cloudinary พร้อมกันทั้งหมด (parallel)
+      const fileUrls = await Promise.all(
+        Array.from(fileList).slice(0, 3).map(async f => {
+          const b64 = await readFileAsBase64(f);
+          return uploadImageToCloudinary(b64, `${trackingId}_${f.name}`);
+        })
+      );
 
       let recName = rec.name || '';
       if (rec.department) recName = recName ? `${recName} (${rec.department})` : rec.department;
@@ -953,8 +947,11 @@
       showOverlay();
 
       // Upload รูปผู้รับและลายเซ็นไป Drive (ถ้ามี GAS URL)
-      const photoUrl = await uploadImageToCloudinary(_captureB64, `${_currentTrackingId}_receiver.jpg`);
-      const signUrl  = await uploadImageToCloudinary(signB64,     `${_currentTrackingId}_sign.png`);
+      // ✅ upload รูปผู้รับและลายเซ็นพร้อมกัน (parallel)
+      const [photoUrl, signUrl] = await Promise.all([
+        uploadImageToCloudinary(_captureB64, `${_currentTrackingId}_receiver.jpg`),
+        uploadImageToCloudinary(signB64,     `${_currentTrackingId}_sign.png`)
+      ]);
 
       const now = new Date();
       try {
