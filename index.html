@@ -629,8 +629,14 @@
           sender:         sender || '-',
           date:           dateTH,
           file_urls: fileUrls && fileUrls.filter(Boolean).length
-            ? fileUrls.filter(Boolean).map((u, i) => `ดูรูปที่ ${i+1}: ${u}`).join('\n')
-            : 'ไม่มีรูปแนบ'
+            ? fileUrls.filter(Boolean).map((u, i) => {
+                // แปลง Cloudinary URL ให้เป็น thumbnail 300px
+                const thumb = u.includes('res.cloudinary.com')
+                  ? u.replace('/upload/', '/upload/w_300,h_200,c_fill,q_70/')
+                  : u;
+                return `<a href="${u}" target="_blank" style="display:inline-block;margin:4px 4px 4px 0;text-decoration:none"><img src="${thumb}" alt="รูปที่ ${i+1}" width="300" style="border-radius:8px;border:2px solid #fde68a;display:block;max-width:100%" /></a>`;
+              }).join('')
+            : '<span style="color:#94a3b8;font-size:13px">ไม่มีรูปแนบ</span>'
         });
         console.log('ส่งอีเมลสำเร็จ:', recipientEmail);
       } catch (err) {
