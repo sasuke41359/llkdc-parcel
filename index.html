@@ -397,11 +397,11 @@
               <tr>
                 <th>วันที่</th><th>จุดรับ</th><th>Tracking</th><th>ผู้ส่ง</th>
                 <th>ผู้รับ</th><th>ประเภท</th><th>สถานะ</th><th>เวลารับ</th>
-                <th>รูปพัสดุ</th><th>รูปผู้รับ</th><th>ลายเซ็น</th>
+                <th>รูปพัสดุ</th><th>รูปผู้รับ</th>
               </tr>
             </thead>
             <tbody id="dashTableBody">
-              <tr><td colspan="11" class="loading-row">กำลังโหลด...</td></tr>
+              <tr><td colspan="10" class="loading-row">กำลังโหลด...</td></tr>
             </tbody>
           </table>
         </div>
@@ -470,11 +470,11 @@
               <tr>
                 <th>วันที่</th><th>จุดรับ</th><th>Tracking</th><th>ผู้ส่ง</th>
                 <th>ผู้รับ</th><th>ประเภท</th><th>สถานะ</th><th>เวลารับ</th>
-                <th>รูปพัสดุ</th><th>รูปผู้รับ</th><th>ลายเซ็น</th>
+                <th>รูปพัสดุ</th><th>รูปผู้รับ</th>
               </tr>
             </thead>
             <tbody id="reportTableBody">
-              <tr><td colspan="11" class="loading-row">กำลังโหลด...</td></tr>
+              <tr><td colspan="10" class="loading-row">กำลังโหลด...</td></tr>
             </tbody>
           </table>
         </div>
@@ -522,9 +522,26 @@
 
     function formatDateTH(date) {
       if (!date) return '';
-      const d = date instanceof Date ? date : new Date(date);
+      // รองรับ Firestore Timestamp object
+      const raw = (date && typeof date.toDate === 'function') ? date.toDate() : date;
+      const d   = raw instanceof Date ? raw : new Date(raw);
       if (isNaN(d)) return '';
-      return d.toLocaleString('th-TH', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false, timeZone:'Asia/Bangkok' }).replace(',','');
+      // แปลงเป็น Bangkok time แบบ manual — หลีกเลี่ยง toLocaleString ที่ได้ GMT+0700
+      const bkk  = new Date(d.toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
+      const pad  = n => String(n).padStart(2, '0');
+      return `${pad(bkk.getDate())}/${pad(bkk.getMonth()+1)}/${bkk.getFullYear()} ${pad(bkk.getHours())}:${pad(bkk.getMinutes())}`;
+    }
+
+    // ✅ แก้ข้อมูลเก่าที่ dateTH เก็บเป็น "Tue Apr 07 2026 17:55:00 GMT+0700 (Indochina Time)"
+    // ถ้าเป็น format dd/MM/yyyy อยู่แล้ว ส่งคืนเลย ไม่ต้องแปลง
+    function cleanDateTH(str) {
+      if (!str) return '';
+      // ถ้าเป็น dd/MM/yyyy format อยู่แล้ว — ส่งคืนเลย
+      if (/^\d{2}\/\d{2}\/\d{4}/.test(str)) return str;
+      // ถ้าเป็น string อื่น (GMT, ISO, etc.) — แปลงผ่าน formatDateTH
+      const d = new Date(str);
+      if (isNaN(d)) return str;
+      return formatDateTH(d);
     }
 
     function todayStr() {
@@ -839,20 +856,18 @@
         const sc        = r.status === 'ค้างรับ' ? 'badge-pending' : 'badge-received';
         const fileLinks = (r.fileUrls || []).filter(Boolean).map((u,i) => `<a href="${u}" target="_blank">ดูรูป${i+1}</a>`).join(' ');
         const photoLink = r.receiverPhotoUrl ? `<a href="${r.receiverPhotoUrl}" target="_blank">ดูรูป</a>` : '-';
-        const signLink  = r.receiverSignUrl  ? `<a href="${r.receiverSignUrl}"  target="_blank">ดูลายเซ็น</a>` : '-';
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td>${r.dateTH||''}</td>
+          <td>${cleanDateTH(r.dateTH)||''}</td>
           <td>${r.pickupPoint||''}</td>
           <td style="white-space:nowrap;font-size:.78rem">${r.trackingId||''}</td>
           <td>${r.sender||''}</td>
           <td>${r.recipient||''}</td>
           <td>${r.type||''}</td>
           <td><span class="badge ${sc}">${r.status||''}</span></td>
-          <td>${r.receivedTH||'-'}</td>
+          <td>${cleanDateTH(r.receivedTH)||'-'}</td>
           <td>${fileLinks||'-'}</td>
-          <td>${photoLink}</td>
-          <td>${signLink}</td>`;
+          <td>${photoLink}</td>`;
         tbody.appendChild(tr);
       });
     }
@@ -987,15 +1002,14 @@
       rows.forEach(r => {
         const fileLinks = (r.fileUrls||[]).filter(Boolean).map((u,i) => `<a href="${u}" target="_blank">ดูรูป${i+1}</a>`).join(' ');
         const photoLink = r.receiverPhotoUrl ? `<a href="${r.receiverPhotoUrl}" target="_blank">ดูรูป</a>` : '-';
-        const signLink  = r.receiverSignUrl  ? `<a href="${r.receiverSignUrl}"  target="_blank">ดูลายเซ็น</a>` : '-';
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td>${r.dateTH||''}</td><td>${r.pickupPoint||''}</td>
+          <td>${cleanDateTH(r.dateTH)||''}</td><td>${r.pickupPoint||''}</td>
           <td style="font-size:.78rem">${r.trackingId||''}</td>
           <td>${r.sender||''}</td><td>${r.recipient||''}</td>
           <td>${r.type||''}</td><td>${r.status||''}</td>
-          <td>${r.receivedTH||'-'}</td>
-          <td>${fileLinks||'-'}</td><td>${photoLink}</td><td>${signLink}</td>`;
+          <td>${cleanDateTH(r.receivedTH)||'-'}</td>
+          <td>${fileLinks||'-'}</td><td>${photoLink}</td>`;
         tbody.appendChild(tr);
       });
     }
