@@ -512,12 +512,17 @@
     const showOverlay  = () => overlay.classList.remove('hidden');
     const hideOverlay  = () => overlay.classList.add('hidden');
 
-    function generateTrackingId() {
-      const now  = new Date();
-      const pad  = n => String(n).padStart(2,'0');
-      const stamp = `${String(now.getFullYear()).slice(2)}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-      const rnd  = Math.floor(Math.random()*10000).toString().padStart(4,'0');
-      return `PKG-${stamp}-${rnd}`;
+    async function generateTrackingId() {
+      // นับจำนวน documents ปัจจุบัน แล้วบวก 1
+      try {
+        const snap = await getDocs(collection(db, 'packages'));
+        const next = snap.size + 1;
+        return `LLKDC-${String(next).padStart(4, '0')}`;
+      } catch {
+        // fallback ถ้า query ไม่สำเร็จ
+        const rnd = Math.floor(Math.random() * 9000) + 1000;
+        return `LLKDC-${rnd}`;
+      }
     }
 
     function formatDateTH(date) {
@@ -704,7 +709,7 @@
       const fileList    = $('files').files;
       const filesArr    = Array.from(fileList).slice(0, 3);
 
-      const trackingId = generateTrackingId();
+      const trackingId = await generateTrackingId();
       const now        = new Date();
       const dateTH     = formatDateTH(now);
       let recName      = rec.name || '';
