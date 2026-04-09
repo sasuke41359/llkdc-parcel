@@ -7,6 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
   <style>
     :root {
       --primary: #1d4ed8;
@@ -424,7 +425,12 @@
     <!-- TAB: รายงาน -->
     <div id="report-tab" class="tab-pane hidden">
       <div class="card">
-        <div class="card-title"><i class="fas fa-list" style="color:#7c3aed"></i>รายงาน</div>
+        <div class="card-title" style="justify-content:space-between">
+          <span><i class="fas fa-list" style="color:#7c3aed"></i>รายงาน</span>
+          <button id="btnExportExcel" class="btn btn-outline btn-sm">
+            <i class="fas fa-file-excel" style="color:#16a34a"></i> Export Excel
+          </button>
+        </div>
         <div class="table-wrap">
           <table>
             <thead>
@@ -973,6 +979,78 @@
         alert('อัปเดตไม่สำเร็จ: ' + err.message);
       }
     });
+
+    // ========== Export Excel ==========
+    $('btnExportExcel').addEventListener('click', exportExcel);
+
+    async function exportExcel() {
+      const btn = $('btnExportExcel');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลัง Export...';
+
+      try {
+        // ดึงข้อมูลทั้งหมดจาก Firestore
+        const snap = await getDocs(query(collection(db, 'packages'), orderBy('createdAt', 'desc')));
+        const rows = snap.docs.map(d => d.data());
+
+        if (!rows.length) {
+          alert('ไม่มีข้อมูลสำหรับ Export');
+          return;
+        }
+
+        // แปลงเป็น array of objects สำหรับ SheetJS
+        const data = rows.map((r, i) => ({
+          'ลำดับ':          i + 1,
+          'Tracking ID':    r.trackingId    || '',
+          'วันที่ลงทะเบียน': r.dateTH        || '',
+          'จุดรับ':          r.pickupPoint   || '',
+          'ผู้ส่ง':           r.sender        || '',
+          'ผู้รับ':           r.recipient     || '',
+          'อีเมลผู้รับ':      r.recipientEmail|| '',
+          'ประเภท':          r.type          || '',
+          'สถานะ':           r.status        || '',
+          'วันที่รับ':        r.receivedTH    || '',
+          'ผู้กดรับ':         r.receivedBy    || '',
+          'รูปพัสดุ':         (r.fileUrls || []).filter(Boolean).join(', '),
+          'รูปผู้รับ':         r.receiverPhotoUrl || '',
+        }));
+
+        // สร้าง Workbook
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(data);
+
+        // ปรับความกว้าง column
+        ws['!cols'] = [
+          { wch: 6 },  // ลำดับ
+          { wch: 22 }, // Tracking ID
+          { wch: 18 }, // วันที่
+          { wch: 12 }, // จุดรับ
+          { wch: 16 }, // ผู้ส่ง
+          { wch: 20 }, // ผู้รับ
+          { wch: 28 }, // อีเมล
+          { wch: 10 }, // ประเภท
+          { wch: 10 }, // สถานะ
+          { wch: 18 }, // วันที่รับ
+          { wch: 16 }, // ผู้กดรับ
+          { wch: 40 }, // รูปพัสดุ
+          { wch: 40 }, // รูปผู้รับ
+        ];
+
+        XLSX.utils.book_append_sheet(wb, ws, 'รายงานพัสดุ');
+
+        // ชื่อไฟล์พร้อมวันที่
+        const today = new Date().toLocaleDateString('th-TH', {
+          day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Bangkok'
+        }).replace(/\//g, '-');
+        XLSX.writeFile(wb, `LLKDC_พัสดุ_${today}.xlsx`);
+
+      } catch (err) {
+        alert('Export ไม่สำเร็จ: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-file-excel" style="color:#16a34a"></i> Export Excel';
+      }
+    }
 
     // ========== Init ==========
     loadMapping();
