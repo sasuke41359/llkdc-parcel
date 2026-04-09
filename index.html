@@ -810,6 +810,22 @@
       actionsBox.classList.add('hidden');
     }
 
+    // ✅ Sort รายการใหม่สุดขึ้นก่อน — ใช้ createdAt เป็นหลัก, timestamp เป็น fallback
+    function sortByNewest(docs) {
+      return docs.sort((a, b) => {
+        const getTime = r => {
+          // Firestore serverTimestamp
+          if (r.createdAt && typeof r.createdAt.toDate === 'function') return r.createdAt.toDate().getTime();
+          // ISO string timestamp
+          if (r.timestamp) { const d = new Date(r.timestamp); if (!isNaN(d)) return d.getTime(); }
+          // dateTH string dd/MM/yyyy HH:mm
+          if (r.dateTH) { const d = parseDateTH(r.dateTH); if (d) return d.getTime(); }
+          return 0;
+        };
+        return getTime(b) - getTime(a);
+      });
+    }
+
     // ========== Dashboard ==========
     let _allPackages = [];
 
@@ -820,16 +836,16 @@
       if (!_dirty.dashboard) return;
       _dirty.dashboard = false;
       const tbody = $('dashTableBody');
-      tbody.innerHTML = '<tr><td colspan="11" class="loading-row">กำลังโหลด...</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10" class="loading-row">กำลังโหลด...</td></tr>';
 
       try {
-        const snap = await getDocs(query(collection(db, 'packages'), orderBy('createdAt', 'desc')));
-        _allPackages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const snap = await getDocs(collection(db, 'packages'));
+        _allPackages = sortByNewest(snap.docs.map(d => ({ id: d.id, ...d.data() })));
         updateStats();
         renderDashTable();
       } catch (err) {
         _dirty.dashboard = true;
-        tbody.innerHTML = `<tr><td colspan="11" class="loading-row" style="color:var(--danger)">โหลดข้อมูลไม่สำเร็จ</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" class="loading-row" style="color:var(--danger)">โหลดข้อมูลไม่สำเร็จ</td></tr>`;
       }
     }
 
@@ -882,8 +898,8 @@
       wrap.innerHTML = '<div class="loading-row">กำลังโหลด...</div>';
 
       try {
-        const snap = await getDocs(query(collection(db, 'packages'), where('status','==','ค้างรับ'), orderBy('createdAt','desc')));
-        _pendingPackages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const snap = await getDocs(query(collection(db, 'packages'), where('status','==','ค้างรับ')));
+        _pendingPackages = sortByNewest(snap.docs.map(d => ({ id: d.id, ...d.data() })));
         renderPendingList(_pendingPackages);
       } catch (err) {
         _dirty.update = true;
@@ -928,8 +944,8 @@
       const tbody = $('reportTableBody');
       tbody.innerHTML = '<tr><td colspan="11" class="loading-row">กำลังโหลด...</td></tr>';
       try {
-        const snap = await getDocs(query(collection(db, 'packages'), orderBy('createdAt','desc')));
-        _allReportRows = snap.docs.map(d => d.data());
+        const snap = await getDocs(collection(db, 'packages'));
+        _allReportRows = sortByNewest(snap.docs.map(d => d.data()));
         renderReportTable(_allReportRows);
       } catch (err) {
         _dirty.report = true;
@@ -1117,7 +1133,7 @@
             }
             return true;
           });
-        })() : (await getDocs(query(collection(db, 'packages'), orderBy('createdAt','desc')))).docs.map(d => d.data());
+        })() : sortByNewest((await getDocs(collection(db, 'packages'))).docs.map(d => d.data()));
 
         if (!rows.length) {
           alert('ไม่มีข้อมูลสำหรับ Export');
