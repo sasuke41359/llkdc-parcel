@@ -241,6 +241,41 @@
     .loading-row { text-align: center; padding: 24px; color: var(--text-muted); }
 
     .hidden { display: none !important; }
+
+    /* ---- Searchable Recipient Dropdown ---- */
+    .recipient-wrap { position: relative; }
+    .recipient-input-wrap { position: relative; }
+    .recipient-search-icon {
+      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      color: var(--muted); font-size: .85rem; pointer-events: none;
+    }
+    .recipient-search {
+      padding-left: 34px !important;
+      padding-right: 34px !important;
+      cursor: pointer;
+    }
+    .recipient-search.selected { color: var(--text); font-weight: 600; }
+    .recipient-arrow {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      color: var(--muted); font-size: .8rem; transition: transform .2s; pointer-events: none;
+    }
+    .recipient-arrow.open { transform: translateY(-50%) rotate(180deg); }
+    .recipient-list {
+      position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+      background: var(--surface); border: 1.5px solid var(--primary-light);
+      border-radius: var(--radius-sm); box-shadow: var(--shadow-lg);
+      max-height: 240px; overflow-y: auto; z-index: 50;
+    }
+    .recipient-item {
+      padding: 10px 14px; cursor: pointer; transition: background .15s;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .recipient-item:last-child { border-bottom: none; }
+    .recipient-item:hover, .recipient-item.highlighted { background: #eff6ff; }
+    .recipient-item .item-name { font-weight: 600; font-size: .92rem; color: var(--text); }
+    .recipient-item .item-dept { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+    .recipient-item .item-match { color: var(--primary); }
+    .recipient-no-result { padding: 14px; text-align: center; color: var(--muted); font-size: .88rem; }
   </style>
 </head>
 
@@ -339,9 +374,17 @@
           </div>
           <div class="form-group">
             <label class="form-label"><i class="fas fa-user" style="color:#22c55e"></i>ชื่อผู้รับ/แผนก</label>
-            <select id="recipient" class="form-control" required>
-              <option value="">กำลังโหลดรายชื่อ...</option>
-            </select>
+            <div id="recipientDropdown" class="recipient-wrap">
+              <div class="recipient-input-wrap">
+                <i class="fas fa-search recipient-search-icon"></i>
+                <input id="recipientSearch" type="text" class="form-control recipient-search"
+                  placeholder="พิมพ์ชื่อหรือแผนกเพื่อค้นหา..." autocomplete="off" />
+                <i class="fas fa-chevron-down recipient-arrow" id="recipientArrow"></i>
+              </div>
+              <div id="recipientList" class="recipient-list hidden"></div>
+              <!-- hidden input เก็บ value จริง -->
+              <input id="recipient" type="hidden" required />
+            </div>
           </div>
           <div class="form-group">
             <label class="form-label"><i class="fas fa-tags" style="color:#a855f7"></i>ประเภทพัสดุ</label>
@@ -676,25 +719,103 @@
       });
     });
 
-    // ========== Load Mapping (recipient dropdown) ==========
+    // ========== Searchable Recipient Dropdown ==========
+    let _mappingData = [];
+    let _selectedRecipient = null;
+
     async function loadMapping() {
-      const sel = $('recipient');
-      sel.innerHTML = '<option value="">กำลังโหลดรายชื่อ...</option>';
+      const searchEl = $('recipientSearch');
+      searchEl.placeholder = 'กำลังโหลดรายชื่อ...';
+      searchEl.disabled    = true;
       try {
         const snap = await getDocs(query(collection(db, 'mapping'), orderBy('order')));
-        sel.innerHTML = '<option value="">เลือกชื่อผู้รับ</option>';
-        snap.forEach(d => {
-          const p   = d.data();
-          const opt = document.createElement('option');
-          opt.value = JSON.stringify(p);
-          opt.textContent = `${p.name || '-'} (${p.department || '-'})`;
-          sel.appendChild(opt);
-        });
+        _mappingData = snap.docs.map(d => d.data());
+        searchEl.placeholder = 'พิมพ์ชื่อหรือแผนกเพื่อค้นหา...';
+        searchEl.disabled    = false;
       } catch (e) {
         console.error(e);
-        sel.innerHTML = '<option value="">โหลดรายชื่อไม่สำเร็จ</option>';
+        searchEl.placeholder = 'โหลดรายชื่อไม่สำเร็จ';
       }
     }
+
+    function highlightMatch(text, query) {
+      if (!query) return text;
+      const idx = text.toLowerCase().indexOf(query.toLowerCase());
+      if (idx < 0) return text;
+      return text.slice(0, idx) +
+        `<span class="item-match">${text.slice(idx, idx + query.length)}</span>` +
+        text.slice(idx + query.length);
+    }
+
+    function renderRecipientList(q) {
+      const list = $('recipientList');
+      const filtered = q
+        ? _mappingData.filter(p =>
+            (p.name       || '').toLowerCase().includes(q.toLowerCase()) ||
+            (p.department || '').toLowerCase().includes(q.toLowerCase()))
+        : _mappingData;
+
+      list.innerHTML = '';
+      if (!filtered.length) {
+        list.innerHTML = `<div class="recipient-no-result"><i class="fas fa-search" style="margin-right:6px;opacity:.4"></i>ไม่พบรายชื่อ "${q}"</div>`;
+        return;
+      }
+      filtered.forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'recipient-item';
+        div.innerHTML = `
+          <div class="item-name">${highlightMatch(p.name || '', q)}</div>
+          ${p.department ? `<div class="item-dept">${highlightMatch(p.department, q)}</div>` : ''}`;
+        div.addEventListener('click', () => selectRecipient(p));
+        list.appendChild(div);
+      });
+    }
+
+    function selectRecipient(p) {
+      _selectedRecipient = p;
+      $('recipient').value      = JSON.stringify(p);
+      $('recipientSearch').value = `${p.name}${p.department ? ` (${p.department})` : ''}`;
+      $('recipientSearch').classList.add('selected');
+      closeRecipientList();
+    }
+
+    function openRecipientList() {
+      const list  = $('recipientList');
+      const arrow = $('recipientArrow');
+      renderRecipientList($('recipientSearch').value);
+      list.classList.remove('hidden');
+      arrow.classList.add('open');
+    }
+
+    function closeRecipientList() {
+      $('recipientList').classList.add('hidden');
+      $('recipientArrow').classList.remove('open');
+    }
+
+    function clearRecipientSelection() {
+      _selectedRecipient = null;
+      $('recipient').value = '';
+      $('recipientSearch').classList.remove('selected');
+    }
+
+    // Event listeners
+    $('recipientSearch').addEventListener('focus', openRecipientList);
+    $('recipientSearch').addEventListener('input', () => {
+      clearRecipientSelection();
+      renderRecipientList($('recipientSearch').value);
+      if ($('recipientList').classList.contains('hidden')) openRecipientList();
+    });
+
+    // ปิด dropdown เมื่อคลิกข้างนอก
+    document.addEventListener('click', e => {
+      if (!$('recipientDropdown').contains(e.target)) closeRecipientList();
+    });
+
+    // ถ้า form reset ให้ล้าง selection ด้วย
+    $('registerForm').addEventListener('reset', () => {
+      clearRecipientSelection();
+      $('recipientSearch').value = '';
+    });
 
     // ========== Create Package ==========
     $('registerForm').addEventListener('submit', async e => {
@@ -781,6 +902,8 @@
       successModal.classList.add('hidden');
       $('registerForm').reset();
       clearFiles();
+      clearRecipientSelection();
+      $('recipientSearch').value = '';
     };
 
     // ========== File Upload Preview ==========
