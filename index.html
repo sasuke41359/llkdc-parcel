@@ -658,6 +658,13 @@
       const { recipientEmail, recipientName, trackingId, pickupPoint, type, sender, dateTH, fileUrls } = payload;
       if (!recipientEmail || !recipientEmail.includes('@')) return;
       try {
+        const urls = fileUrls ? fileUrls.filter(Boolean) : [];
+        const photoButtons = urls.length
+          ? urls.map((u, i) =>
+              `<a href="${u}" target="_blank" style="display:inline-block;margin:4px 6px 4px 0;padding:10px 20px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:8px;font-size:13px;font-weight:600;font-family:'Segoe UI',Arial,sans-serif">📷 ดูรูปที่ ${i+1}</a>`
+            ).join('')
+          : '<span style="color:#94a3b8;font-size:13px">ไม่มีรูปแนบ</span>';
+
         await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
           to_email:       recipientEmail,
           recipient_name: recipientName || recipientEmail,
@@ -666,10 +673,7 @@
           type:           type,
           sender:         sender || '-',
           date:           dateTH,
-          photo_1: fileUrls?.[0] ? fileUrls[0].replace('/upload/', '/upload/w_400,h_300,c_fill,q_80/') : '',
-          photo_2: fileUrls?.[1] ? fileUrls[1].replace('/upload/', '/upload/w_400,h_300,c_fill,q_80/') : '',
-          photo_3: fileUrls?.[2] ? fileUrls[2].replace('/upload/', '/upload/w_400,h_300,c_fill,q_80/') : '',
-          has_photo: fileUrls && fileUrls.filter(Boolean).length > 0 ? 'yes' : ''
+          photo_buttons:  photoButtons
         });
         console.log('ส่งอีเมลสำเร็จ:', recipientEmail);
       } catch (err) {
