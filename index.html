@@ -242,6 +242,27 @@
 
     .hidden { display: none !important; }
 
+    /* ---- Toast Notification ---- */
+    .toast-wrap {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      z-index: 999; display: flex; flex-direction: column; align-items: center; gap: 8px;
+      pointer-events: none;
+    }
+    .toast-item {
+      background: #1e293b; color: #fff;
+      padding: 12px 20px; border-radius: 99px;
+      font-size: .88rem; font-weight: 500;
+      box-shadow: 0 4px 20px rgba(0,0,0,.2);
+      opacity: 0; transform: translateY(16px);
+      transition: opacity .3s, transform .3s;
+      max-width: 320px; text-align: center; line-height: 1.4;
+      pointer-events: auto;
+    }
+    .toast-item.show { opacity: 1; transform: translateY(0); }
+    .toast-item.success { background: #16a34a; }
+    .toast-item.danger  { background: #dc2626; }
+    .toast-item.warning { background: #d97706; }
+
     /* ---- Searchable Recipient Dropdown ---- */
     .recipient-wrap { position: relative; }
     .recipient-input-wrap { position: relative; }
@@ -280,6 +301,9 @@
 </head>
 
 <body>
+  <!-- Toast Container -->
+  <div class="toast-wrap" id="toastWrap"></div>
+
   <!-- Overlay: loading -->
   <div id="overlay" class="overlay hidden">
     <div class="modal" style="text-align:center;padding:32px">
@@ -554,6 +578,20 @@
 
     // ========== Utility ==========
     const $ = id => document.getElementById(id);
+
+    // ========== Toast ==========
+    function showToast(msg, type = '', duration = 3000) {
+      const wrap = $('toastWrap');
+      const el   = document.createElement('div');
+      el.className = `toast-item ${type}`;
+      el.textContent = msg;
+      wrap.appendChild(el);
+      requestAnimationFrame(() => { requestAnimationFrame(() => el.classList.add('show')); });
+      setTimeout(() => {
+        el.classList.remove('show');
+        setTimeout(() => el.remove(), 350);
+      }, duration);
+    }
     const overlay      = $('overlay');
     const successModal = $('successModal');
     const showOverlay  = () => overlay.classList.remove('hidden');
@@ -906,7 +944,7 @@
 
       } catch (err) {
         hideOverlay();
-        alert('บันทึกไม่สำเร็จ: ' + err.message);
+        showToast('บันทึกไม่สำเร็จ: ' + err.message, 'danger');
       }
     });
 
@@ -1227,8 +1265,8 @@
 
     $('btnConfirmReceive').addEventListener('click', async () => {
       const name = $('receiverNameInput').value.trim();
-      if (!name)         return alert('กรุณากรอกชื่อผู้รับพัสดุ');
-      if (!_captureFile) return alert('กรุณาอัปโหลดรูปผู้รับ');
+      if (!name)         return showToast('กรุณากรอกชื่อผู้รับพัสดุ', 'warning');
+      if (!_captureFile) return showToast('กรุณาอัปโหลดรูปผู้รับ', 'warning');
 
       showOverlay();
 
@@ -1251,10 +1289,10 @@
         markAllDirty();
         _dirty.update = false;
         await loadPending();
-        alert('อัปเดตสถานะเรียบร้อยแล้ว');
+        showToast('✅ อัปเดตสถานะเรียบร้อยแล้ว', 'success');
       } catch (err) {
         hideOverlay();
-        alert('อัปเดตไม่สำเร็จ: ' + err.message);
+        showToast('อัปเดตไม่สำเร็จ: ' + err.message, 'danger');
       }
     });
 
@@ -1289,7 +1327,7 @@
         })() : sortByNewest((await getDocs(collection(db, 'packages'))).docs.map(d => d.data()));
 
         if (!rows.length) {
-          alert('ไม่มีข้อมูลสำหรับ Export');
+          showToast('ไม่มีข้อมูลสำหรับ Export', 'warning');
           return;
         }
 
@@ -1340,7 +1378,7 @@
         XLSX.writeFile(wb, `LLKDC_พัสดุ_${today}.xlsx`);
 
       } catch (err) {
-        alert('Export ไม่สำเร็จ: ' + err.message);
+        showToast('Export ไม่สำเร็จ: ' + err.message, 'danger');
       } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-file-excel" style="color:#16a34a"></i> Export Excel';
