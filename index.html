@@ -628,7 +628,9 @@
           type:           type,
           sender:         sender || '-',
           date:           dateTH,
-          file_urls:      fileUrls && fileUrls.length ? fileUrls.filter(Boolean).join('\n') : 'ไม่มีรูปแนบ'
+          file_urls: fileUrls && fileUrls.filter(Boolean).length
+            ? fileUrls.filter(Boolean).map((u, i) => `ดูรูปที่ ${i+1}: ${u}`).join('\n')
+            : 'ไม่มีรูปแนบ'
         });
         console.log('ส่งอีเมลสำเร็จ:', recipientEmail);
       } catch (err) {
