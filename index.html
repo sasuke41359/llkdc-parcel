@@ -1074,7 +1074,7 @@
           <div class="pkg-card-sub">${pkg.type} • ${pkg.pickupPoint}</div>
           <div class="pkg-card-date">${pkg.dateTH||''}</div>
           <div style="margin-top:10px">
-            <button class="btn btn-success btn-sm"><i class="fas fa-check"></i> รับแล้ว (อัปโหลดรูป + เซ็น)</button>
+            <button class="btn btn-success btn-sm"><i class="fas fa-check"></i> รับแล้ว (อัปโหลดรูป)</button>
           </div>`;
         card.querySelector('button').addEventListener('click', () => openReceiveModal(pkg.id, pkg.trackingId));
         wrap.appendChild(card);
