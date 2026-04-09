@@ -434,6 +434,10 @@
           </select>
           <button id="btnRefresh" class="btn btn-outline"><i class="fas fa-rotate"></i></button>
         </div>
+        <div class="search-wrap" style="margin-bottom:12px">
+          <i class="fas fa-search"></i>
+          <input id="dashSearch" type="text" class="form-control" placeholder="ค้นหาชื่อผู้รับ, ผู้ส่ง, Tracking...">
+        </div>
         <div class="table-wrap">
           <table>
             <thead>
@@ -959,6 +963,7 @@
 
     $('btnRefresh').addEventListener('click', () => { _dirty.dashboard = true; loadDashboard(); });
     $('statusFilter').addEventListener('change', renderDashTable);
+    $('dashSearch').addEventListener('input', renderDashTable);
 
     async function loadDashboard() {
       if (!_dirty.dashboard) return;
@@ -990,11 +995,23 @@
 
     function renderDashTable() {
       const status = $('statusFilter').value;
-      const list   = status ? _allPackages.filter(r => r.status === status) : _allPackages;
+      const q      = ($('dashSearch').value || '').toLowerCase().trim();
       const tbody  = $('dashTableBody');
+
+      let list = status ? _allPackages.filter(r => r.status === status) : _allPackages;
+      if (q) {
+        list = list.filter(r =>
+          (r.recipient   || '').toLowerCase().includes(q) ||
+          (r.sender      || '').toLowerCase().includes(q) ||
+          (r.trackingId  || '').toLowerCase().includes(q) ||
+          (r.pickupPoint || '').toLowerCase().includes(q) ||
+          (r.type        || '').toLowerCase().includes(q)
+        );
+      }
+
       tbody.innerHTML = '';
       if (!list.length) {
-        tbody.innerHTML = '<tr><td colspan="11" class="loading-row">ไม่มีข้อมูล</td></tr>'; return;
+        tbody.innerHTML = `<tr><td colspan="10" class="loading-row">${q ? `ไม่พบ "${q}"` : 'ไม่มีข้อมูล'}</td></tr>`; return;
       }
       list.forEach(r => {
         const sc        = r.status === 'ค้างรับ' ? 'badge-pending' : 'badge-received';
