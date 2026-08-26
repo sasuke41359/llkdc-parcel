@@ -4,6 +4,9 @@
   ใช้กับ EmailJS: service_x1ikhw4 / template_kd34iqm
   ตัวแปร (อย่าเปลี่ยนชื่อ): recipient_name, tracking_id, pickup_point, type, sender, date, photo_buttons
 
+  สำคัญ: photo_buttons ใช้สามปีกกา {{{photo_buttons}}} เพราะเป็น HTML —
+  ถ้าใช้สองปีกกา {{ }} EmailJS จะ escape ทำให้แสดงเป็นโค้ดดิบ ไม่ใช่ปุ่ม
+
   วิธีใช้: คัดลอกทั้งไฟล์นี้ไปวางแทนที่ใน
   EmailJS Dashboard → Email Templates → template_kd34iqm → Content (HTML)
 -->
@@ -69,7 +72,7 @@
         <!-- Photos -->
         <tr><td style="padding:22px 48px 0 48px;">
           <div style="color:#6b6455; font-size:13px; margin-bottom:8px;">เอกสารแนบ (ภาพถ่ายพัสดุ):</div>
-          <div>{{photo_buttons}}</div>
+          <div>{{{photo_buttons}}}</div>
         </td></tr>
 
         <!-- Closing -->
