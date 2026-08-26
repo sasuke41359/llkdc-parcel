@@ -666,9 +666,9 @@
         const urls = fileUrls ? fileUrls.filter(Boolean) : [];
         const photoButtons = urls.length
           ? urls.map((u, i) =>
-              `<a href="${u}" target="_blank" style="display:inline-block;margin:4px 6px 4px 0;padding:10px 20px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:8px;font-size:13px;font-weight:600;font-family:'Segoe UI',Arial,sans-serif">📷 ดูรูปที่ ${i+1}</a>`
+              `<a href="${u}" target="_blank" style="display:inline-block;margin:0 8px 8px 0;padding:9px 18px;background:#0f2a5c;color:#ffffff;text-decoration:none;border-radius:4px;font-size:12.5px;font-weight:600;font-family:'Segoe UI',Arial,sans-serif;letter-spacing:0.2px">ดูรูปที่ ${i+1}</a>`
             ).join('')
-          : '<span style="color:#94a3b8;font-size:13px">ไม่มีรูปแนบ</span>';
+          : '<span style="color:#a1a9b8;font-size:12.5px">ไม่มีรูปแนบ</span>';
 
         await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
           to_email:       recipientEmail,
