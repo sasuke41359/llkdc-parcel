@@ -226,6 +226,28 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* ---- Pull to refresh ---- */
+    .ptr {
+      position: fixed; top: 0; left: 0; right: 0;
+      display: flex; align-items: center; justify-content: center;
+      height: 0; overflow: hidden; z-index: 900;
+      pointer-events: none;
+      transition: height .2s ease;
+    }
+    .ptr-spinner {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--surface); box-shadow: var(--shadow);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--primary); font-size: 1rem;
+      transform: translateY(-4px);
+    }
+    .ptr.pulling .ptr-spinner i { transition: transform .2s ease; }
+    .ptr.ready .ptr-spinner i { transform: rotate(180deg); }
+    .ptr.refreshing .ptr-spinner i {
+      animation: spin .7s linear infinite;
+      transform: none;
+    }
+
     /* ---- Success icon ---- */
     .success-icon { font-size: 3rem; color: var(--success); text-align: center; margin-bottom: 8px; }
 
@@ -306,6 +328,11 @@
 </head>
 
 <body>
+  <!-- Pull-to-refresh indicator -->
+  <div id="ptr" class="ptr">
+    <div class="ptr-spinner"><i class="fas fa-arrow-down"></i></div>
+  </div>
+
   <!-- Toast Container -->
   <div class="toast-wrap" id="toastWrap"></div>
 
@@ -772,6 +799,73 @@
         if (target === 'report'    && _dirty.report)    loadReport();
       });
     });
+
+    // ========== Pull to refresh ==========
+    // รูดลงเมื่ออยู่บนสุดเพื่อรีเฟรชข้อมูลของแท็บที่เปิดอยู่
+    function currentTab() {
+      const active = document.querySelector('.tab-btn.active');
+      return active ? active.dataset.tab : 'register';
+    }
+
+    async function refreshCurrentTab() {
+      const tab = currentTab();
+      try {
+        if (tab === 'dashboard')      await loadDashboard();
+        else if (tab === 'update')    await loadPending();
+        else if (tab === 'report')    await loadReport();
+        else { markAllDirty(); await loadMapping(); }
+        showToast('รีเฟรชข้อมูลแล้ว', 'success', 1800);
+      } catch (e) {
+        console.warn('refresh error:', e);
+        showToast('รีเฟรชไม่สำเร็จ', 'danger', 2500);
+      }
+    }
+
+    (function initPullToRefresh() {
+      const ptr = $('ptr');
+      const THRESHOLD = 70;   // ระยะที่ต้องรูดจึงจะรีเฟรช
+      const MAX = 100;        // ระยะดึงสูงสุด
+      let startY = 0, dist = 0, pulling = false, refreshing = false;
+
+      const atTop = () =>
+        (window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0) <= 0;
+
+      window.addEventListener('touchstart', e => {
+        if (refreshing || !atTop() || e.touches.length !== 1) { pulling = false; return; }
+        startY = e.touches[0].clientY;
+        pulling = true;
+        dist = 0;
+      }, { passive: true });
+
+      window.addEventListener('touchmove', e => {
+        if (!pulling || refreshing) return;
+        dist = e.touches[0].clientY - startY;
+        if (dist <= 0) { ptr.style.height = '0px'; ptr.classList.remove('pulling', 'ready'); return; }
+        // ต้านทาน (rubber-band) ให้ดึงยากขึ้นเรื่อยๆ
+        const pull = Math.min(MAX, dist * 0.5);
+        ptr.style.height = pull + 'px';
+        ptr.classList.add('pulling');
+        ptr.classList.toggle('ready', pull >= THRESHOLD);
+      }, { passive: true });
+
+      window.addEventListener('touchend', async () => {
+        if (!pulling || refreshing) return;
+        pulling = false;
+        const pulled = Math.min(MAX, dist * 0.5);
+        ptr.classList.remove('pulling', 'ready');
+        if (pulled >= THRESHOLD) {
+          refreshing = true;
+          ptr.classList.add('refreshing');
+          ptr.style.height = '48px';
+          await refreshCurrentTab();
+          ptr.classList.remove('refreshing');
+          ptr.style.height = '0px';
+          refreshing = false;
+        } else {
+          ptr.style.height = '0px';
+        }
+      });
+    })();
 
     // ========== Searchable Recipient Dropdown ==========
     let _mappingData = [];
